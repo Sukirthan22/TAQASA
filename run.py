@@ -95,9 +95,37 @@ def cmd_infer(args) -> int:
 
 
 def cmd_compare(args) -> int:
-    raise NotImplementedError(
-        "--compare is Phase 5. Gates 1-4 must pass first."
-    )
+    """Phase 5: run both policies on the identical book and write results/report.md."""
+    from src.audit import summarise, write_run
+    from src.harness import run_policy
+    from src.policies.agent import build as build_agent
+    from src.policies.baseline import build as build_baseline
+    from src.report import build as build_report
+    from src.simulator import load_invoices
+
+    df = load_invoices()
+    baseline = run_policy(build_baseline(), df)
+    agent = run_policy(build_agent(), df)
+
+    write_run(agent)
+    stats = summarise()
+    path = build_report(baseline, agent, df)
+
+    lift = agent.overall["net_recovery"] - baseline.overall["net_recovery"]
+    print()
+    print("=" * 76)
+    print(f"  baseline net recovery   {baseline.overall['net_recovery']:>18,.0f}")
+    print(f"  agent net recovery      {agent.overall['net_recovery']:>18,.0f}")
+    print(f"  NET INCREMENTAL         {lift:>18,.0f}   "
+          f"({lift / baseline.overall['net_recovery']:+.1%})")
+    print("=" * 76)
+    print(f"  wrote {path}")
+    print(f"  wrote {cfg.RESULTS_DIR}/chart_recovery_by_cause.png")
+    print(f"  wrote {cfg.RESULTS_DIR}/chart_cumulative_cash.png")
+    print(f"  wrote {cfg.AUDIT_LOG_JSONL}  "
+          f"({stats['rows']:,} rows, {stats['veto_total']:,} guardrail vetoes)")
+    print()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
