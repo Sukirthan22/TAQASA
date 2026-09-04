@@ -54,10 +54,19 @@ def cmd_verify(args) -> int:
 
 
 def cmd_policy(args) -> int:
-    raise NotImplementedError(
-        f"--policy {args.policy} needs the harness, which is Phase 2. "
-        "Gate 1 must pass first: python run.py --verify"
-    )
+    """Phase 2/4: run one policy over every invoice and print its scoreboard."""
+    from src.harness import print_result, run_policy
+    from src.simulator import load_invoices
+
+    if args.policy == "baseline":
+        from src.policies.baseline import build
+    else:
+        from src.policies.agent import build
+
+    df = load_invoices()
+    result = run_policy(build(), df)
+    print_result(result)
+    return 0
 
 
 def cmd_compare(args) -> int:
