@@ -2,191 +2,245 @@
 
 **Razorpay AI Buildathon 2026 · Track 3: AI Revenue Recovery**
 
-Most receivables teams chase overdue invoices on a fixed ladder: reminder on day 7,
-firmer reminder on day 21, phone call on day 45 — the same treatment for every
-customer. That is wrong, because invoices go unpaid for completely different
-reasons, and each reason needs a different response.
+Businesses chase overdue invoices on a fixed ladder — reminder day 7, firmer reminder day 21, phone call day 45 — giving every customer the same treatment. That is wrong, because invoices go unpaid for completely different reasons, and each reason needs a different response. This agent works out **why** each invoice is unpaid, does the one thing that works for that reason, stops when it should stop, and logs every decision.
 
-This project builds an agent that works out **why** each invoice is unpaid, picks
-the right action for that reason, stops when it should stop, and logs every
-decision — plus a measurement rig that proves it beats the fixed ladder in rupees.
+## The result
 
-> **Headline number goes here once Phase 5 lands.**
-> Baseline recovered ₹X net · agent recovered ₹Y net · net incremental recovery ₹Z (+N%).
+> ### Net incremental recovery: **₹1,67,68,240 (+33.1%)**
+>
+> | | baseline (fixed ladder) | agent |
+> |---|---:|---:|
+> | Net recovery | ₹5,06,36,900 | **₹6,74,05,140** |
+> | Recovery rate | 60.0% | **77.2%** |
+> | Contacts sent | 1,129 | **350** |
+>
+> Identical 500 invoices, identical world, identical 90 days. The agent recovered **₹1.68 crore more while sending 779 fewer messages.**
 
----
+![Cumulative cash collected](results/chart_cumulative_cash.png)
 
-## Build status
-
-| Phase | What it is | State |
-|---|---|---|
-| 0 | Scaffold | done |
-| 1 | Simulator & world model | **done — Gate 1 passed, 34/34 checks** |
-| 2 | Harness & baseline policy | not started |
-| 3 | Cause inference (rules + decision tree) | not started |
-| 4 | Agent policy, guardrails, audit log | not started |
-| 5 | Evaluation & failure analysis | not started |
-| 6 | README, architecture diagram, video | not started |
+**One number that does *not* flatter this agent, stated up front: mean days-to-cash gets worse, 33.9 → 35.1 days.** That is real, it is explained in [Where it fails](#where-it-fails), and a team optimising for DSO rather than for cash would be right to reject this agent. Full analysis in **[results/report.md](results/report.md)**.
 
 ## Run it
 
 ```bash
 pip install -r requirements.txt
 ```
-
 ```bash
-python run.py --generate
+python run.py --generate        # 500 invoices with hidden causes, SEED=42
+```
+```bash
+python run.py --verify          # 34 checks, including determinism
+```
+```bash
+python run.py --policy baseline # the fixed ladder — the number to beat
+```
+```bash
+python run.py --infer           # both cause-inference arms, confusion matrices
+```
+```bash
+python run.py --policy agent    # the agent + guardrails + audit log
+```
+```bash
+python run.py --compare         # writes results/report.md and both charts
 ```
 
-```bash
-python run.py --verify
-```
+Seven commands from a clean clone. Everything is seeded; two runs produce identical numbers.
 
----
+## Architecture
 
-## Why a simulator and not a real dataset
+![Architecture](docs/architecture.svg)
 
-The single number this project lives or dies by is:
+The load-bearing idea is the **leakage rail**. The invoice carries a hidden `latent_cause`, but a policy never receives it: the harness hands policies an `ObservedState` built by `redact()`, holding only what a real collections team would know — what it sent, when, and what came back. Reading ground truth from a policy requires visibly going around a named function.
 
-> **Net incremental recovery** = (agent recovered − agent cost) − (baseline recovered − baseline cost), on the identical set of invoices.
+## Why simulate instead of using a real dataset
 
-Computing that requires running two different policies over the *same* invoice and
-comparing. Real invoice datasets cannot do this: they record what happened once,
-under someone else's collection policy. They cannot tell you what would have
-happened if you had waited three more days, or routed to disputes instead of
-emailing. Without that counterfactual branch there is no way to score a new
-decision policy at all.
+Real invoice data records what happened **once**, under someone else's chasing policy. It cannot tell you what *would* have happened if you had waited three more days, or called instead of emailed. Without that, a new decision policy cannot be scored at all.
 
-The simulator is not a shortcut around missing data. It is the only structure that
-makes the core metric computable.
+The world model is a pure function that rolls no dice — every random draw a customer will ever need is made once at generation time and frozen onto the invoice. So the baseline can be run over an invoice, time rewound, and the agent run over the *same* invoice. The difference is attributable to the policy alone. That counterfactual is not a shortcut around missing data; it is the only structure that makes the headline metric computable.
 
----
+## The four hidden causes
 
-## The world model
-
-Every invoice carries a hidden `latent_cause` the agent never sees. It is inferred
-from observable clues. The cause is what secretly decides whether money arrives.
+The agent cannot see these. It must infer them from clues that correlate with the cause but never determine it.
 
 | Cause | Share | How it actually gets paid |
 |---|---|---|
-| `FORGOTTEN` | 35% | Pays 2 days after the **first** contact of any kind. Extra contacts do nothing. Never contacted → pays day 75. |
-| `CASH_CRUNCH` | 25% | Has a hidden liquidity day (40–70). Contacts before it are wasted; a contact on or after it converts in 2 days. `OFFER_PLAN` pulls that day forward 10. |
-| `DISPUTE` | 20% | Reminders never work. Pays 10 days after `ROUTE_DISPUTE`. Each reminder sent before routing adds +3 days. |
-| `CHRONIC` | 20% | Never pays. Sole exception: `ESCALATE_LEGAL` on invoices above ₹2,00,000 recovers 40% on day 85. |
+| `FORGOTTEN` | 35% | Pays 2 days after the **first** contact of any kind. Extra contacts do nothing. |
+| `CASH_CRUNCH` | 25% | Has a hidden liquidity day (40–70). Contacts before it achieve nothing. |
+| `DISPUTE` | 20% | Never pays from reminders. Pays 10 days after `ROUTE_DISPUTE`. Each reminder sent before routing adds 3 days. |
+| `CHRONIC` | 20% | Never pays. Sole exception: legal notice above ₹2,00,000 recovers 40% on day 85. |
 
-### The action menu
-
-| Action | Cost | What it does |
-|---|---|---|
-| `NUDGE_SOFT` | ₹20 | Polite reminder email |
-| `NUDGE_FIRM` | ₹20 | Firm email with statement of account |
-| `CALL` | ₹200 | Human picks up the phone — may extract a promise-to-pay |
-| `OFFER_PLAN` | ₹200 | Offer to split into instalments |
-| `ROUTE_DISPUTE` | ₹500 | Hand to the internal dispute desk — not a customer contact |
-| `ESCALATE_LEGAL` | ₹2,000 | Formal notice (MSMED Act route where applicable) |
-| `WAIT` | ₹0 | Deliberately do nothing today |
-| `WRITE_OFF` | ₹0 | Give up permanently. Terminal. |
-
-Costs are what make judgement necessary. Without them the optimal strategy is to
-fire every action at every invoice, and *correctly doing nothing* stops being a
-measurable win.
-
-### Where the agent's advantage should come from
-
-1. **Dispute recovery** — money the baseline never gets, because reminders don't resolve disputes.
-2. **Chronic cost avoidance** — three wasted contacts on every chronic invoice, saved.
-3. **Cash-crunch patience** — not burning contacts before the customer physically has money.
-4. **Faster forgotten recovery** — nudging on day 3 instead of day 7 lowers DSO.
-
----
-
-## Design decisions this implementation locked in
-
-The PRD left four things underspecified. Each was resolved deliberately, and each
-is a question a panel could reasonably ask.
-
-**1. Day 0 is the due date.** Every invoice enters as a fresh cohort, so at any
-point `days_overdue == current_day`. This is what makes the PRD's numbers
-consistent with each other: baseline nudges on day 7 (= 7 days overdue), the legal
-guardrail's `days_overdue > 60` becomes reachable on day 61, and CHRONIC legal
-recovery on day 85 lands inside the 90-day horizon.
-
-**2. `CALL` extracts a promise-to-pay.** The PRD priced `CALL` at ₹200 but never
-said what it does. It behaves like any other contact for payment purposes, and
-additionally may extract a promised date. Crucially a PTP does **not** cause
-payment — payment stays governed entirely by the four cause rules. A PTP is a
-behavioural signal that trips stopping rule 3 (halt until the promised date
-passes). That makes a CHRONIC customer who promises and never pays a real trap the
-guardrail walks into, which is exactly the kind of honest failure Phase 5 should
-surface rather than hide.
-
-**3. `email_opened` / `email_replied` describe the original invoice email**, not
-the agent's chasing. They are generated once, available at day 0, and usable as
-classifier features with no leakage from actions the agent later takes.
-
-**4. The cash-crunch "or" was resolved.** PRD B2 says a cash-crunch invoice "pays
-then, or 2 days after the first contact following that day". Read literally those
-branches collide — self-payment on the liquidity day would always beat a later
-contact, making contact pointless and deleting lift source 3. The implemented
-reading: contacts before the liquidity day are wasted, a contact on or after it
-converts in 2 days, and an invoice nobody ever contacts drifts and pays
-`CASH_CRUNCH_UNCONTACTED_PAY_LAG` (15) days late. That constant is the one number
-in the world model not given by the PRD, and it is named and isolated in
-`config.py` so its effect can be tested.
-
-**5. `ROUTE_DISPUTE` is not a customer contact.** It hands the invoice to your own
-internal dispute desk. It costs ₹500 but spends no contact budget and causes no
-annoyance.
-
----
+Costs make restraint measurable: `NUDGE` ₹20, `CALL`/`OFFER_PLAN` ₹200, `ROUTE_DISPUTE` ₹500, `ESCALATE_LEGAL` ₹2,000, `WAIT` and `WRITE_OFF` free. Without costs the optimal strategy is to spam every action at every invoice.
 
 ## Stopping rules
 
-Hardcoded, enforced by a wrapper that can veto any action the policy wants
-(built in Phase 4). Thresholds live in `config.py`.
+Enforced by a wrapper that can veto **any** action regardless of what the policy wants. A guardrail you can forget to call is not a guardrail.
 
-1. Maximum 4 contacts per invoice, ever
-2. Minimum 48 hours between any two contacts
-3. Auto-halt on promise-to-pay until the promised date passes
-4. Auto-halt permanently on customer opt-out
-5. `ESCALATE_LEGAL` requires amount > ₹2,00,000 **and** days_overdue > 60
-6. `WRITE_OFF` and `PAID` are terminal — no action after either
-7. Horizon is 90 days; anything unresolved becomes a write-off
+1. Maximum **4 contacts** per invoice, ever.
+2. Minimum **48 hours** between any two contacts.
+3. **Auto-halt on promise-to-pay** until the promised date passes.
+4. **Auto-halt permanently on customer opt-out.**
+5. `ESCALATE_LEGAL` requires amount **> ₹2,00,000 AND** days overdue **> 60**.
+6. `WRITE_OFF` and `PAID` are **terminal** — no action after either.
+7. Horizon is **90 days**; anything unresolved becomes a write-off.
 
----
+Rules 1–5 live in [`src/guardrails.py`](src/guardrails.py). Rules 6–7 are physics, not policy — acting after `PAID` is a contradiction, not a compliance breach, so the world model raises instead of vetoing.
+
+**The agent does not re-check rule 5 itself.** It states its intent from day 0 and the guardrail refuses until the invoice is eligible, producing **2,009 veto rows** in the audit log. An earlier version duplicated the rule inside the policy and the veto layer fired *zero* times — an untested guardrail, not a safe one.
+
+## Cause inference
+
+Two arms, both scored on the same stratified held-out 150 invoices.
+
+**Rules arm — 73.3%** (ships)
+
+| truth \ guess | FORG | CASH | DISP | CHRO | recall |
+|---|---:|---:|---:|---:|---:|
+| FORGOTTEN | 38 | 2 | 13 | 0 | 72% |
+| CASH_CRUNCH | 1 | 24 | 8 | 4 | 65% |
+| DISPUTE | 5 | 2 | 21 | 2 | 70% |
+| CHRONIC | 0 | 1 | 2 | 27 | 90% |
+| **precision** | 86% | 83% | 48% | **82%** | |
+
+**Decision tree, depth 4 — 72.0%**
+
+| truth \ guess | FORG | CASH | DISP | CHRO | recall |
+|---|---:|---:|---:|---:|---:|
+| FORGOTTEN | 35 | 2 | 16 | 0 | 66% |
+| CASH_CRUNCH | 1 | 30 | 2 | 4 | 81% |
+| DISPUTE | 4 | 0 | 22 | 4 | 73% |
+| CHRONIC | 5 | 4 | 0 | 21 | 70% |
+| **precision** | 78% | 83% | 55% | **72%** | |
+
+Accuracy is deliberately **not** 100%: 18 of the 150 held-out invoices carry clues generated from the wrong cause and are unlearnable by construction, putting the ceiling near 88%.
+
+### Why the rules arm ships, and it is not because it scored higher
+
+The arms finish **2 invoices apart on n=150**, which is noise, not a result. The tie-break that matters is **precision on CHRONIC — 82% vs 72%** — because CHRONIC is the only guess this agent acts on *irreversibly*: it leads to `WRITE_OFF`, which is terminal. A false CHRONIC does not waste ₹20 on an email; it discards an invoice that would have paid in full. On this split that is 6 invoices wrongly written off under the rules arm against 8 under the tree.
+
+A second reason: the rules arm is not trained on anything, so all 500 invoices are effectively held out when the agent runs. A tree-driven agent would be scored partly on its own training data.
+
+<details>
+<summary><b>The full decision tree</b> — the entire model, capped at depth 4 so a human can read it</summary>
+
+```
+|--- customer_pays_after_day_of_month <= 19.50
+|   |--- customer_prior_disputes <= 0.50
+|   |   |--- customer_historic_dso <= 75.00
+|   |   |   |--- partial_delivery_flag <= 0.50
+|   |   |   |   |--- class: FORGOTTEN
+|   |   |   |--- partial_delivery_flag >  0.50
+|   |   |   |   |--- class: DISPUTE
+|   |   |--- customer_historic_dso >  75.00
+|   |   |   |--- amount <= 61850.00
+|   |   |   |   |--- class: CHRONIC
+|   |   |   |--- amount >  61850.00
+|   |   |   |   |--- class: CHRONIC
+|   |--- customer_prior_disputes >  0.50
+|   |   |--- email_replied <= 0.50
+|   |   |   |--- customer_historic_dso <= 61.00
+|   |   |   |   |--- class: DISPUTE
+|   |   |   |--- customer_historic_dso >  61.00
+|   |   |   |   |--- class: CHRONIC
+|   |   |--- email_replied >  0.50
+|   |   |   |--- customer_historic_dso <= 35.50
+|   |   |   |   |--- class: FORGOTTEN
+|   |   |   |--- customer_historic_dso >  35.50
+|   |   |   |   |--- class: DISPUTE
+|--- customer_pays_after_day_of_month >  19.50
+|   |--- customer_historic_dso <= 81.00
+|   |   |--- po_mismatch_flag <= 0.50
+|   |   |   |--- customer_prior_writeoffs <= 1.50
+|   |   |   |   |--- class: CASH_CRUNCH
+|   |   |   |--- customer_prior_writeoffs >  1.50
+|   |   |   |   |--- class: CHRONIC
+|   |   |--- po_mismatch_flag >  0.50
+|   |   |   |--- email_opened <= 0.50
+|   |   |   |   |--- class: DISPUTE
+|   |   |   |--- email_opened >  0.50
+|   |   |   |   |--- class: CASH_CRUNCH
+|   |--- customer_historic_dso >  81.00
+|   |   |--- customer_prior_writeoffs <= 1.50
+|   |   |   |--- customer_historic_dso <= 92.00
+|   |   |   |   |--- class: CASH_CRUNCH
+|   |   |   |--- customer_historic_dso >  92.00
+|   |   |   |   |--- class: CHRONIC
+|   |   |--- customer_prior_writeoffs >  1.50
+|   |   |   |--- class: CHRONIC
+```
+
+Two things worth noticing, neither of them flattering. The tree roots on `customer_pays_after_day_of_month` because that feature is close to a giveaway — 90% of CASH_CRUNCH invoices sit at ≥ 20 against 5% of FORGOTTEN and 3% of DISPUTE — which is a weakness in how the clues were generated, not a discovery. And one branch splits on `amount` and returns `CHRONIC` on both sides, so depth 4 is not fully used.
+
+</details>
+
+## Where the lift comes from
+
+Split by the hidden cause, and within each cause into the money side and the cost side. The four net figures reconcile to the headline exactly — an attribution that does not reconcile is a story, not an analysis.
+
+| hidden cause | n | Δ recovered | Δ cost | **Δ net** | contacts |
+|---|---:|---:|---:|---:|---:|
+| DISPUTE | 100 | +₹1,46,11,400 | +₹22,900 | **+₹1,45,88,500** | 288 → 26 |
+| CHRONIC | 100 | +₹35,86,080 | +₹32,300 | **+₹35,53,780** | 295 → 47 |
+| FORGOTTEN | 175 | −₹3,67,500 | +₹13,140 | **−₹3,80,640** | 175 → 149 |
+| CASH_CRUNCH | 125 | −₹10,00,100 | −₹6,700 | **−₹9,93,400** | 371 → 128 |
+| **total** | 500 | +₹1,68,29,880 | +₹61,640 | **+₹1,67,68,240** | 1,129 → 350 |
+
+**Two of the four are negative.** The entire lift comes from DISPUTE and CHRONIC. On FORGOTTEN and CASH_CRUNCH the agent is actively *worse* than a dumb ladder, because the baseline was already near-perfect there and every misclassification is pure downside.
+
+### The value of correctly doing nothing
+
+**63 of 100** CHRONIC invoices were never contacted once. The baseline spent **₹14,520** chasing those same invoices and recovered nothing from them. Contacts on CHRONIC fell 295 → 47, and 25 legal notices (₹50,000) recovered **₹35,86,080**.
+
+![Recovery by cause](results/chart_recovery_by_cause.png)
+
+## Where it fails
+
+Five failures, each found by comparing what happened to the *same invoice* under both policies. Every invoice id is in `data/invoices.csv`. Full detail in [results/report.md](results/report.md).
+
+**1 · 14 payable invoices written off on day 0 — ₹13,67,600 forfeited.** The agent wrongly inferred CHRONIC and issued `WRITE_OFF`, which is terminal. The baseline collected every one in full — `INV-0012` (CASH_CRUNCH, ₹1,82,300, collected day 47), `INV-0044` (FORGOTTEN, ₹1,23,800, collected day 9). *Root cause:* not a weak classifier, but a fallible guess paired with an irreversible action.
+
+**2 · 51 of 126 dispute routings were wrong — ₹25,500 wasted.** DISPUTE precision is 48%, the weakest number in the system. Worse than the wasted ₹500 is the *silence* that follows: the DISPUTE playbook suppresses all reminders, so **23 FORGOTTEN invoices** were routed and then deliberately ignored, paying on day 75 instead of day 9. *Root cause:* `po_mismatch_flag` fires on 5% of FORGOTTEN invoices as a base rate, and FORGOTTEN is the largest class, so base-rate contamination swamps the branch.
+
+**3 · 43 of 87 cash-crunch nudges fired before the money existed.** *Root cause:* no feature carries timing. `customer_pays_after_day_of_month` says the customer is cash-constrained but is drawn *independently* of `liquidity_day`, so it contains zero information about when money arrives. This is a missing-feature problem; no amount of model improvement fixes it.
+
+**4 · 25 real disputes never routed — ₹59,37,100 unrecoverable.** The mirror of failure 2. `ROUTE_DISPUTE` is the only action in the entire menu that resolves a dispute, so an unrecognised one can never be paid. *Root cause:* precision and recall on DISPUTE trade directly against each other; no threshold fixes both.
+
+**5 · Mean days-to-cash is worse than the baseline's — 33.9 → 35.1.** On FORGOTTEN specifically, 9.0 → 19.2. *Root cause:* nudging on day 3 works exactly as designed when the guess is right (day 9.0 → 5.0), but misrouted invoices drift to day 75, and a minority of large delays outweighs a majority of small gains. The agent also deliberately waits on CASH_CRUNCH, and collects CHRONIC money on day 85 that the baseline never collects at all — cash the baseline's DSO never has to average in.
+
+### One fix I found and deliberately did not apply
+
+`WRITE_OFF` on a small chronic invoice is **strictly dominated** by `WAIT` in this world model. Both cost ₹0, and both end as a write-off at the horizon for a genuinely chronic invoice — but `WAIT` keeps the upside on a *misclassified* one, since an uncontacted FORGOTTEN still pays on day 75. Switching would recover **₹13,67,600** and lift the recovery rate to 80.0%.
+
+I kept `WRITE_OFF`, because it is what the spec I wrote says, and reporting the loss is worth more than quietly engineering it away. The reasoning is recorded at [`config.py`](config.py) so a later change cannot happen by accident.
+
+## What I would build next with real Razorpay data
+
+1. **Replace the simulator's payment rules with a survival model fitted to real settlement times**, keeping the counterfactual harness exactly as it is. The harness is the reusable asset here; the world model is the part that should be learned rather than assumed.
+2. **Make the action irreversibility explicit in the decision rule.** Failures 1 and 4 are both the same bug: expected value is computed as if every action were reversible. `WRITE_OFF` should require a much higher confidence bar than `NUDGE_SOFT`, scaled by invoice value — a cost-sensitive threshold per action, not one classifier feeding all four playbooks.
+3. **Find a feature that carries timing.** Failure 3 is unfixable by modelling. Payment-history seasonality, GST filing dates, or observed settlement patterns on the customer's *other* invoices would give the agent something real to aim at instead of the middle of a range it cannot see into.
+4. **Run online with a holdout arm.** The counterfactual argument that makes this simulation legitimate is the same argument for keeping a permanent random-assignment control group in production — otherwise the lift stops being measurable the moment it ships.
 
 ## Repo layout
 
 ```
-├── config.py            every tunable number in the project
-├── run.py               single entry point
-├── verify_phase1.py     the Gate 1 exam paper
-├── src/
-│   ├── simulator.py     invents the 500 invoices          (Phase 1, done)
-│   ├── world_model.py   the rulebook: does it get paid?   (Phase 1, done)
-│   ├── inference.py     guess the hidden cause            (Phase 3)
-│   ├── harness.py       the scoreboard                    (Phase 2)
-│   ├── audit.py         append-only decision log          (Phase 4)
-│   └── policies/
-│       ├── baseline.py  the fixed ladder                  (Phase 2)
-│       └── agent.py     the smart policy                  (Phase 4)
-├── data/                invoices.csv
-└── results/             report.md, audit_log.jsonl, charts
+config.py                 every tunable number; no magic numbers elsewhere
+run.py                    single entry point
+src/simulator.py          generates 500 invoices, hidden causes, correlated clues
+src/world_model.py        step(state, action, day) — pure, deterministic
+src/harness.py            the scoreboard + the run-time leakage rail
+src/inference.py          rules arm and depth-4 tree, both scored held-out
+src/guardrails.py         the veto layer — can overrule any policy
+src/policies/baseline.py  the fixed ladder
+src/policies/agent.py     inference → playbook per cause
+src/audit.py              append-only JSONL decision log
+src/report.py             generates results/report.md and both charts
+verify_phase1.py          34 checks, including a determinism proof
 ```
 
-### The leakage rail
+Stack: Python 3.11, pandas, numpy, scikit-learn, matplotlib. No LLM is used for any pay/wait/write-off decision — that logic is rule-based and auditable end to end.
 
-`config.py` splits every column into `OBSERVABLE_COLUMNS` and `HIDDEN_COLUMNS`.
-`latent_cause` and everything prefixed `hidden_` is ground truth owned by the world
-model. Policies receive their input through `simulator.observable_view()`, so
-peeking at the answer requires visibly going around a named function.
+## Verification
 
-### Determinism
-
-`world_model.step(state, action, day)` is a pure function: it reads nothing global,
-mutates nothing, and rolls no dice. Every random draw a customer will ever need —
-when their money arrives, whether they promise to pay, when they opt out — is made
-once at generation time and stamped onto the invoice. That is what lets us run the
-baseline over an invoice, rewind, run the agent over the same invoice, and
-legitimately compare. `python run.py --verify` proves it by hashing two independent
-replays.
+- `data/invoices.csv` — exactly 500 rows, cause mix 35/25/20/20
+- `results/audit_log.jsonl` — 2,944 rows, one per decision, every one with a reason; 2,009 guardrail vetoes
+- `python run.py --verify` — 34 checks including a byte-identical determinism proof across two runs
+- Every number in `results/report.md` is computed from the runs by `src/report.py`. None is typed in.

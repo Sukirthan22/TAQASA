@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 660" width="1180" height="660" font-family="'Segoe UI',Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a5568"/>
+    </marker>
+    <marker id="arwRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <rect width="1180" height="660" fill="#ffffff"/>
+
+  <text x="34" y="42" font-size="21" font-weight="700" fill="#12203a">B2B Receivables Chaser — architecture</text>
+  <text x="34" y="66" font-size="13.5" fill="#5a6a85">One invoice, one day at a time. The agent decides, the guardrail permits, the world model rules, the log remembers.</text>
+
+  <!-- ================= LANE A : what the agent can see ================= -->
+  <rect x="24" y="92" width="1132" height="182" rx="10" fill="#f5f8fd" stroke="#c9d8ef"/>
+  <text x="40" y="115" font-size="11.5" font-weight="700" fill="#2f6fd0" letter-spacing="1.1">WHAT THE AGENT CAN SEE</text>
+
+  <!-- 1 invoice -->
+  <rect x="40" y="130" width="176" height="118" rx="8" fill="#ffffff" stroke="#9db6d8" stroke-width="1.4"/>
+  <text x="128" y="154" font-size="13.5" font-weight="700" fill="#12203a" text-anchor="middle">Observable features</text>
+  <text x="128" y="176" font-size="11" fill="#5a6a85" text-anchor="middle">amount · days overdue</text>
+  <text x="128" y="192" font-size="11" fill="#5a6a85" text-anchor="middle">historic DSO · prior disputes</text>
+  <text x="128" y="208" font-size="11" fill="#5a6a85" text-anchor="middle">PO mismatch · write-offs</text>
+  <text x="128" y="224" font-size="11" fill="#5a6a85" text-anchor="middle">email opened / replied</text>
+  <text x="128" y="241" font-size="10.5" font-style="italic" fill="#8a99b0" text-anchor="middle">simulator.observable_view()</text>
+
+  <!-- 2 inference -->
+  <rect x="266" y="130" width="176" height="118" rx="8" fill="#ffffff" stroke="#9db6d8" stroke-width="1.4"/>
+  <text x="354" y="154" font-size="13.5" font-weight="700" fill="#12203a" text-anchor="middle">Cause inference</text>
+  <text x="354" y="177" font-size="11" fill="#5a6a85" text-anchor="middle">rules cascade, 4 branches</text>
+  <text x="354" y="194" font-size="11" fill="#5a6a85" text-anchor="middle">73.3% on held-out 150</text>
+  <text x="354" y="215" font-size="11" fill="#2f6fd0" text-anchor="middle">FORGOTTEN · CASH_CRUNCH</text>
+  <text x="354" y="231" font-size="11" fill="#2f6fd0" text-anchor="middle">DISPUTE · CHRONIC</text>
+  <text x="354" y="248" font-size="10.5" font-style="italic" fill="#8a99b0" text-anchor="middle">src/inference.py</text>
+
+  <!-- 3 action selection -->
+  <rect x="492" y="130" width="176" height="118" rx="8" fill="#ffffff" stroke="#9db6d8" stroke-width="1.4"/>
+  <text x="580" y="154" font-size="13.5" font-weight="700" fill="#12203a" text-anchor="middle">Action selection</text>
+  <text x="580" y="177" font-size="11" fill="#5a6a85" text-anchor="middle">one playbook per cause</text>
+  <text x="580" y="196" font-size="10.5" fill="#5a6a85" text-anchor="middle">nudge · wait · offer plan</text>
+  <text x="580" y="212" font-size="10.5" fill="#5a6a85" text-anchor="middle">route dispute · escalate</text>
+  <text x="580" y="228" font-size="10.5" fill="#5a6a85" text-anchor="middle">write off</text>
+  <text x="580" y="248" font-size="10.5" font-style="italic" fill="#8a99b0" text-anchor="middle">src/policies/agent.py</text>
+
+  <!-- 4 guardrail -->
+  <rect x="718" y="130" width="186" height="118" rx="8" fill="#fff6f4" stroke="#e2a79b" stroke-width="1.8"/>
+  <text x="811" y="154" font-size="13.5" font-weight="700" fill="#8c2f22" text-anchor="middle">Guardrail veto layer</text>
+  <text x="811" y="176" font-size="10.5" fill="#8c5a50" text-anchor="middle">C2.1 max 4 contacts</text>
+  <text x="811" y="191" font-size="10.5" fill="#8c5a50" text-anchor="middle">C2.2 48h between contacts</text>
+  <text x="811" y="206" font-size="10.5" fill="#8c5a50" text-anchor="middle">C2.3 halt on promise-to-pay</text>
+  <text x="811" y="221" font-size="10.5" fill="#8c5a50" text-anchor="middle">C2.4 halt on opt-out</text>
+  <text x="811" y="236" font-size="10.5" fill="#8c5a50" text-anchor="middle">C2.5 legal bar: &gt;₹2L, &gt;60d</text>
+  <text x="811" y="251" font-size="10.5" font-style="italic" fill="#b08a80" text-anchor="middle">src/guardrails.py</text>
+
+  <!-- 5 chosen action -->
+  <rect x="954" y="152" width="186" height="74" rx="8" fill="#eef4ff" stroke="#9db6d8" stroke-width="1.4"/>
+  <text x="1047" y="180" font-size="13.5" font-weight="700" fill="#12203a" text-anchor="middle">Permitted action</text>
+  <text x="1047" y="201" font-size="11" fill="#5a6a85" text-anchor="middle">or WAIT, if vetoed</text>
+  <text x="1047" y="218" font-size="10.5" fill="#8a99b0" text-anchor="middle">+ reason string</text>
+
+  <!-- lane A arrows -->
+  <line x1="216" y1="189" x2="262" y2="189" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+  <line x1="442" y1="189" x2="488" y2="189" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+  <line x1="668" y1="189" x2="714" y2="189" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+  <line x1="904" y1="189" x2="950" y2="189" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+
+  <!-- ================= THE RAIL ================= -->
+  <line x1="24" y1="316" x2="1156" y2="316" stroke="#c0392b" stroke-width="2" stroke-dasharray="9 6"/>
+  <rect x="404" y="300" width="372" height="32" rx="6" fill="#ffffff" stroke="#c0392b" stroke-width="1.4"/>
+  <text x="590" y="321" font-size="12" font-weight="700" fill="#c0392b" text-anchor="middle">THE LEAKAGE RAIL — ground truth never crosses upward</text>
+
+  <!-- ================= LANE B : world only ================= -->
+  <rect x="24" y="352" width="1132" height="146" rx="10" fill="#fbf7f2" stroke="#e3d5c2"/>
+  <text x="40" y="375" font-size="11.5" font-weight="700" fill="#96703c" letter-spacing="1.1">WHAT ONLY THE WORLD MODEL CAN SEE</text>
+
+  <rect x="40" y="390" width="300" height="92" rx="8" fill="#ffffff" stroke="#d6bd9b" stroke-width="1.4"/>
+  <text x="190" y="414" font-size="13.5" font-weight="700" fill="#5c4520" text-anchor="middle">Hidden state</text>
+  <text x="190" y="435" font-size="11" fill="#8a6f45" text-anchor="middle">latent_cause · liquidity_day</text>
+  <text x="190" y="451" font-size="11" fill="#8a6f45" text-anchor="middle">will they promise · when they opt out</text>
+  <text x="190" y="472" font-size="10.5" font-style="italic" fill="#a99172" text-anchor="middle">drawn once at generation, then frozen</text>
+
+  <rect x="390" y="390" width="330" height="92" rx="8" fill="#ffffff" stroke="#d6bd9b" stroke-width="1.8"/>
+  <text x="555" y="414" font-size="13.5" font-weight="700" fill="#5c4520" text-anchor="middle">world_model.step(state, action, day)</text>
+  <text x="555" y="436" font-size="11" fill="#8a6f45" text-anchor="middle">pure function · rolls no dice</text>
+  <text x="555" y="453" font-size="11" fill="#8a6f45" text-anchor="middle">did money arrive? what did it cost?</text>
+  <text x="555" y="472" font-size="10.5" font-style="italic" fill="#a99172" text-anchor="middle">same inputs ⇒ same outputs, forever</text>
+
+  <rect x="770" y="390" width="370" height="92" rx="8" fill="#ffffff" stroke="#d6bd9b" stroke-width="1.4"/>
+  <text x="955" y="414" font-size="13.5" font-weight="700" fill="#5c4520" text-anchor="middle">Determinism ⇒ the counterfactual</text>
+  <text x="955" y="436" font-size="11" fill="#8a6f45" text-anchor="middle">run the baseline over an invoice, rewind,</text>
+  <text x="955" y="453" font-size="11" fill="#8a6f45" text-anchor="middle">run the agent over the <tspan font-style="italic">same</tspan> invoice</text>
+  <text x="955" y="472" font-size="10.5" font-style="italic" fill="#a99172" text-anchor="middle">real data records only the branch that happened</text>
+
+  <line x1="340" y1="436" x2="386" y2="436" stroke="#96703c" stroke-width="1.8" marker-end="url(#arw)"/>
+  <line x1="720" y1="436" x2="766" y2="436" stroke="#96703c" stroke-width="1.8" marker-end="url(#arw)"/>
+
+  <!-- action down into the world -->
+  <path d="M 1047 226 L 1047 262 L 700 262 L 700 296" fill="none" stroke="#4a5568" stroke-width="1.8"/>
+  <path d="M 700 296 L 700 386" fill="none" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+  <text x="712" y="284" font-size="10.5" fill="#4a5568">action applied to the world</text>
+
+  <!-- blocked upward arrow -->
+  <line x1="190" y1="386" x2="190" y2="336" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#arwRed)"/>
+  <text x="200" y="352" font-size="10.5" font-weight="600" fill="#c0392b">blocked</text>
+
+  <!-- ================= OUTPUTS ================= -->
+  <rect x="40" y="530" width="340" height="96" rx="8" fill="#ffffff" stroke="#9db6d8" stroke-width="1.4"/>
+  <text x="210" y="554" font-size="13.5" font-weight="700" fill="#12203a" text-anchor="middle">Append-only audit log</text>
+  <text x="210" y="575" font-size="11" fill="#5a6a85" text-anchor="middle">one JSONL row per decision, with a reason</text>
+  <text x="210" y="592" font-size="11" fill="#5a6a85" text-anchor="middle">2,944 rows · 2,009 guardrail vetoes</text>
+  <text x="210" y="612" font-size="10.5" font-style="italic" fill="#8a99b0" text-anchor="middle">results/audit_log.jsonl</text>
+
+  <rect x="410" y="530" width="330" height="96" rx="8" fill="#ffffff" stroke="#9db6d8" stroke-width="1.4"/>
+  <text x="575" y="554" font-size="13.5" font-weight="700" fill="#12203a" text-anchor="middle">Harness scoreboard</text>
+  <text x="575" y="575" font-size="11" fill="#5a6a85" text-anchor="middle">recovered · rate · contacts · cost</text>
+  <text x="575" y="592" font-size="11" fill="#5a6a85" text-anchor="middle">net recovery · DSO · per hidden cause</text>
+  <text x="575" y="612" font-size="10.5" font-style="italic" fill="#8a99b0" text-anchor="middle">src/harness.py</text>
+
+  <rect x="770" y="530" width="370" height="96" rx="8" fill="#eaf3ea" stroke="#8fb58f" stroke-width="1.8"/>
+  <text x="955" y="556" font-size="13.5" font-weight="700" fill="#1f5c2f" text-anchor="middle">Net incremental recovery</text>
+  <text x="955" y="583" font-size="18" font-weight="700" fill="#1f5c2f" text-anchor="middle">₹1,67,68,240  (+33.1%)</text>
+  <text x="955" y="606" font-size="11" fill="#3d7a4d" text-anchor="middle">agent net − baseline net, identical 500 invoices</text>
+  <text x="955" y="621" font-size="10.5" font-style="italic" fill="#6b9e78" text-anchor="middle">results/report.md</text>
+
+  <line x1="380" y1="578" x2="406" y2="578" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+  <line x1="740" y1="578" x2="766" y2="578" stroke="#4a5568" stroke-width="1.8" marker-end="url(#arw)"/>
+  <path d="M 555 482 L 555 512 L 210 512 L 210 526" fill="none" stroke="#4a5568" stroke-width="1.6" marker-end="url(#arw)"/>
+  <path d="M 555 482 L 555 526" fill="none" stroke="#4a5568" stroke-width="1.6" marker-end="url(#arw)"/>
+</svg>
