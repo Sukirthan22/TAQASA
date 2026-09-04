@@ -38,6 +38,7 @@ baseline. Fix the world model.
 from __future__ import annotations
 
 import config as cfg
+from src.harness import Decision
 
 # The ladder, in one place: day number -> action. PRD C1.
 LADDER = {
@@ -56,12 +57,14 @@ class BaselinePolicy:
         """What do we do to this invoice today?
 
         Reads only the calendar. `view` and `observed` are accepted and ignored
-        — that is the entire point of the control arm.
+        — that is the entire point of the control arm. `inferred_cause` stays
+        None on every row of the audit log, which is the honest record of a
+        policy that never forms a view about anything.
         """
         action = LADDER.get(day)
         if action is None:
-            return cfg.WAIT, f"day {day}: not a ladder day"
-        return action, f"day {day}: fixed ladder step"
+            return Decision(cfg.WAIT, f"day {day}: not a ladder day")
+        return Decision(action, f"day {day}: fixed ladder step")
 
 
 def build() -> BaselinePolicy:

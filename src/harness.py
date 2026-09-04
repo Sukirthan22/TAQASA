@@ -113,6 +113,25 @@ class ObservedState:
         return None if last is None else self.day - last
 
 
+@dataclass
+class Decision:
+    """What a policy decided to do today, and why.
+
+    Richer than a bare action because the audit log (PRD Phase 4) has to record
+    the reasoning, not just the outcome: which cause the agent thought it was
+    looking at, how sure it was, and whether a guardrail overruled it.
+
+    The baseline fills in only `action` and `reason` — it has no inferred cause
+    because it never infers anything, and `None` there is the honest record.
+    """
+
+    action: str
+    reason: str
+    inferred_cause: Optional[str] = None
+    confidence: Optional[float] = None
+    guardrail: Optional[str] = None      # set by the veto layer, not the policy
+
+
 def redact(state: InvoiceState, day: int, actions_taken: tuple) -> ObservedState:
     """Strip an InvoiceState down to what a policy may legitimately see.
 
@@ -198,7 +217,8 @@ def run_invoice(policy, row, horizon: int = cfg.HORIZON_DAYS) -> InvoiceRun:
             break
 
         observed = redact(state, day, actions_taken)
-        action, reason = policy.decide(view, observed, day)
+        decision = policy.decide(view, observed, day)
+        action, reason = decision.action, decision.reason
 
         if action not in cfg.ACTIONS:
             raise ValueError(
@@ -220,14 +240,18 @@ def run_invoice(policy, row, horizon: int = cfg.HORIZON_DAYS) -> InvoiceRun:
         # world rail blocked, and any day money arrived. Cash often lands on a
         # WAIT day — a log that omits the payment is a log that hides the
         # outcome, so WAIT days are silent EXCEPT when they pay.
-        if action != cfg.WAIT or rail is not None or outcome.cash_collected:
+        if (action != cfg.WAIT or rail is not None or outcome.cash_collected
+                or decision.guardrail is not None):
             if action != cfg.WAIT:
                 actions_taken = actions_taken + ((day, action),)
             decisions.append({
                 "invoice_id": state.invoice_id,
                 "day": day,
+                "inferred_cause": decision.inferred_cause,
+                "confidence": decision.confidence,
                 "action": action,
                 "reason": reason,
+                "guardrail_triggered": decision.guardrail,
                 "world_rail": rail,
                 "cost": outcome.cost,
                 "cash": outcome.cash_collected,

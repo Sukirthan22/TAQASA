@@ -67,6 +67,21 @@ def cmd_policy(args) -> int:
     df = load_invoices()
     result = run_policy(build(), df)
     print_result(result)
+
+    # The agent writes its reasoning to the append-only audit log. The baseline
+    # has no reasoning to write, so it does not.
+    if args.policy == "agent":
+        from src.audit import summarise, write_run
+
+        path = write_run(result)
+        stats = summarise(path)
+        print("-" * 76)
+        print(f"AUDIT LOG  {path}")
+        print(f"  {stats['rows']:,} rows, one per decision")
+        print(f"  {stats['veto_total']:,} of them are guardrail vetoes:")
+        for rule, count in sorted(stats["vetoes"].items()):
+            print(f"      {count:>5}  {rule}")
+        print()
     return 0
 
 

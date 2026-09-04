@@ -402,3 +402,41 @@ RULE_CONFIDENCE = {
     CASH_CRUNCH: 0.75,
     FORGOTTEN: 0.55,
 }
+
+
+# ---------------------------------------------------------------------------
+# 12. THE AGENT POLICY (PRD Phase 4 / B5)
+# ---------------------------------------------------------------------------
+#
+# One block per inferred cause. Read this next to section 4 (how each cause
+# actually pays) — every number below is an answer to a rule in that section.
+
+# --- FORGOTTEN -------------------------------------------------------------
+# They pay 2 days after the FIRST contact, and extra contacts do nothing. So
+# there is exactly one decision to make: how early to send the one nudge. Day 3
+# rather than the baseline's day 7 simply because earlier is strictly better
+# and there is no cost to being prompt beyond the Rs 20.
+AGENT_FORGOTTEN_NUDGE_DAY = 3
+
+# --- CASH_CRUNCH -----------------------------------------------------------
+# The agent CANNOT see liquidity_day. It knows only that the customer looks
+# cash-constrained, not when their money lands — `customer_pays_after_day_of_
+# month` says they pay late in the month, but it is drawn independently of
+# liquidity_day in the simulator, so it carries no timing information at all.
+#
+# So the agent aims at the plausible range (40-70) instead. Two contacts:
+# one in the middle of the window, one at the far end. A contact before the
+# money arrives is wasted, so the first shot deliberately does not come early.
+AGENT_CASH_CRUNCH_FIRST_CONTACT_DAY = 55
+AGENT_CASH_CRUNCH_SECOND_CONTACT_DAY = 70
+
+# On a large invoice the first contact is an instalment offer rather than a
+# nudge. It costs Rs 200 instead of Rs 20, but it pulls the liquidity day
+# forward 10 days, which on a big invoice buys back far more than it costs.
+AGENT_OFFER_PLAN_MIN_AMOUNT = 200_000
+
+# --- CHRONIC ---------------------------------------------------------------
+# Legal notice is only permitted once the invoice is more than 60 days overdue
+# (guardrail C2.5), so the earliest legal day is 61. Any earlier attempt is
+# vetoed by the guardrail rather than silently rescheduled.
+AGENT_LEGAL_DAY = LEGAL_MIN_DAYS_OVERDUE + 1
