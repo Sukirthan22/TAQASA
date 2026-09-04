@@ -440,3 +440,16 @@ AGENT_OFFER_PLAN_MIN_AMOUNT = 200_000
 # (guardrail C2.5), so the earliest legal day is 61. Any earlier attempt is
 # vetoed by the guardrail rather than silently rescheduled.
 AGENT_LEGAL_DAY = LEGAL_MIN_DAYS_OVERDUE + 1
+#
+# DECIDED, DO NOT SILENTLY "OPTIMISE" THIS AWAY:
+# A small chronic invoice is WRITTEN OFF, per PRD B5/Phase 4. Measured in
+# Phase 4, that action is strictly dominated by WAIT in this world model —
+# both cost Rs 0, both end as a write-off at the horizon for a genuinely
+# chronic invoice, but WAIT keeps the upside on a MISCLASSIFIED one, since an
+# uncontacted FORGOTTEN still pays on day 75 and an uncontacted CASH_CRUNCH by
+# day 85. Switching to WAIT is worth Rs 13,67,600 and takes the recovery rate
+# from 77.2% to 80.0%.
+#
+# We keep WRITE_OFF anyway, deliberately: fidelity to the written spec is worth
+# more here than 2% of net recovery, and the resulting loss is reported as a
+# real failure in "Where It Fails" rather than quietly engineered away.
