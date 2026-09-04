@@ -6,6 +6,7 @@ Plain English: everything you can do with this repo, you do through this file.
     python run.py --generate          build data/invoices.csv          (Phase 1)
     python run.py --verify            run the Gate 1 checks            (Phase 1)
     python run.py --policy baseline   score the dumb ladder            (Phase 2)
+    python run.py --infer             score both inference arms        (Phase 3)
     python run.py --policy agent      score the smart agent            (Phase 4)
     python run.py --compare           write results/report.md          (Phase 5)
 
@@ -69,6 +70,15 @@ def cmd_policy(args) -> int:
     return 0
 
 
+def cmd_infer(args) -> int:
+    """Phase 3: train both inference arms and score them on the held-out split."""
+    from src.inference import evaluate
+    from src.simulator import load_invoices
+
+    evaluate(load_invoices(), seed=args.seed)
+    return 0
+
+
 def cmd_compare(args) -> int:
     raise NotImplementedError(
         "--compare is Phase 5. Gates 1-4 must pass first."
@@ -87,6 +97,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Phase 1: run the Gate 1 checks")
     p.add_argument("--policy", choices=["baseline", "agent"],
                    help="Phase 2/4: run one policy over all invoices and score it")
+    p.add_argument("--infer", action="store_true",
+                   help="Phase 3: score both cause-inference arms on the held-out split")
     p.add_argument("--compare", action="store_true",
                    help="Phase 5: run both policies and write results/report.md")
     p.add_argument("--n", type=int, default=cfg.N_INVOICES,
@@ -106,6 +118,8 @@ def main(argv=None) -> int:
         return cmd_verify(args)
     if args.policy:
         return cmd_policy(args)
+    if args.infer:
+        return cmd_infer(args)
     if args.compare:
         return cmd_compare(args)
 

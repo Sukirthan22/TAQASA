@@ -355,3 +355,50 @@ HIDDEN_COLUMNS = (
 )
 
 ALL_COLUMNS = OBSERVABLE_COLUMNS + HIDDEN_COLUMNS
+
+
+# ---------------------------------------------------------------------------
+# 11. CAUSE INFERENCE (PRD Phase 3)
+# ---------------------------------------------------------------------------
+#
+# Two arms, both scored on the SAME held-out split so the comparison is fair:
+#   Rules arm    explicit if/else over the clues. No training. Always works.
+#   Learned arm  a depth-capped decision tree, so it can be printed and read.
+
+# The split. 350 train / 150 test, stratified so every cause keeps its share.
+TRAIN_SIZE = 350
+TEST_SIZE = 150
+
+# Depth 4 is a hard cap, not a hyperparameter to tune. A tree deeper than this
+# cannot be printed in a README and read by a human, and an unreadable model
+# defeats the point of using a tree instead of something stronger.
+TREE_MAX_DEPTH = 4
+
+# --- Rules-arm thresholds --------------------------------------------------
+# Every number below is read off the CLUE_PARAMS table in section 8. They are
+# stated here rather than inline so a panelist can check the rules against the
+# generator without reading any code.
+
+# CHRONIC tell: the customer never even opens the email, AND has a history of
+# leaving suppliers unpaid or takes far longer than anyone else to pay.
+RULE_CHRONIC_MIN_WRITEOFFS = 1
+RULE_CHRONIC_MIN_DSO = 75
+
+# DISPUTE tell: a paperwork problem on this invoice, or a customer who argues
+# about invoices as a matter of habit.
+RULE_DISPUTE_MIN_PRIOR_DISPUTES = 2
+
+# CASH_CRUNCH tell: pays only late in the month, when their own money lands.
+RULE_CASH_MIN_DAY_OF_MONTH = 20
+RULE_CASH_MIN_DSO = 60
+
+# Confidence the rules arm reports when each branch fires. These are honest
+# self-assessments, not probabilities: the CHRONIC branch needs two independent
+# signals to agree so it is trusted more than the catch-all FORGOTTEN branch,
+# which fires simply because nothing else did.
+RULE_CONFIDENCE = {
+    CHRONIC: 0.80,
+    DISPUTE: 0.70,
+    CASH_CRUNCH: 0.75,
+    FORGOTTEN: 0.55,
+}
