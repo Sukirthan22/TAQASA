@@ -109,6 +109,25 @@ The agent cannot see these. It must infer them from clues that correlate with th
 
 Costs make restraint measurable: `NUDGE` ₹20, `CALL`/`OFFER_PLAN` ₹200, `ROUTE_DISPUTE` ₹500, `ESCALATE_LEGAL` ₹2,000, `WAIT` and `WRITE_OFF` free. Without costs the optimal strategy is to spam every action at every invoice.
 
+## The baseline: what the agent has to beat
+
+[`src/policies/baseline.py`](src/policies/baseline.py) is a fixed dunning ladder — soft nudge day 7, firmer nudge day 21, phone call day 45 — applied to every invoice, in that order, with no exceptions. Its `decide()` method takes the same `view` and `observed` arguments every policy gets from the harness and **reads neither one**. That is not a simplification for the demo; it is the entire point of a control arm. `inferred_cause` stays `None` on every row of its audit log — the honest record of a policy that never forms a view about anything.
+
+It is deliberately stupid in exactly one way — it never asks *why* an invoice is unpaid — and nowhere else. It still respects the same guardrails as the agent (opt-outs, contact caps, the 48-hour spacing), so it isn't a strawman: beating a baseline that was also badly *implemented* would prove nothing except that worse code is easy to write on purpose. The only thing missing is judgement.
+
+That single omission plays out differently against each hidden cause:
+
+| Cause | What the ladder does to it |
+|---|---|
+| `FORGOTTEN` | Recovers nearly everything — any contact triggers payment — but slower than it needs to: nothing happens until day 7, so cash that could land on day 5 lands on day 9. |
+| `CASH_CRUNCH` | Recovers only where day 45's call happens to fall after the customer's hidden liquidity day; the day 7 and day 21 nudges are pure waste, sent before the money exists. |
+| `DISPUTE` | Recovers ₹0. Reminders cannot resolve a dispute, ever — each one just adds delay to a resolution this policy is structurally incapable of reaching. |
+| `CHRONIC` | Recovers ₹0 and pays full contact cost for the privilege, three times over. |
+
+That table is also a gate, not just a description: if a full run doesn't reproduce it, the bug is in the world model, not the baseline — the ladder has no logic left to get wrong.
+
+The baseline is what "most receivables teams actually run today," and it's a genuinely tough number to beat on FORGOTTEN specifically, which is 35% of the book and where the ladder is already close to optimal. The agent's net win comes entirely from the other three causes — see [Where the lift comes from](#where-the-lift-comes-from).
+
 ## Stopping rules
 
 Enforced by a wrapper that can veto **any** action regardless of what the policy wants. A guardrail you can forget to call is not a guardrail.
