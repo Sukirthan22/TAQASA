@@ -46,6 +46,21 @@ python run.py --compare         # writes results/report.md and both charts
 
 Seven commands from a clean clone. Everything is seeded; two runs produce identical numbers.
 
+Optionally, `python run.py --infer-llm` scores the two LLM arms from their cached answers — no API key needed, same numbers every time. Add `--refresh` to re-call the models, which needs `NVIDIA_API_KEY` and `pip install openai`.
+
+## The dashboard
+
+`web/dashboard.html` is an operator console over the same run — cash accruing day by day, the decision feed with the reason behind every action, lift attribution by hidden cause, all four inference arms with their confusion matrices, the guardrail veto tally, and the full 500-invoice ledger with each invoice's baseline counterfactual beside it. Open the file directly; it is one self-contained page with no server and no build step.
+
+```bash
+python web/export_data.py       # runs both policies, writes web/data.json
+```
+```bash
+python web/build.py             # inlines the data, writes web/dashboard.html
+```
+
+**It computes nothing of its own.** `export_data.py` calls the same `harness.run_policy` and `inference.score` that `src/report.py` calls, so the console and [results/report.md](results/report.md) cannot drift apart — if a figure is wrong on the page it is wrong in the report too. Every number the page renders is read out of `data.json`; none is typed into the markup.
+
 ## Architecture
 
 ![Architecture](docs/architecture.svg)
@@ -57,6 +72,29 @@ The load-bearing idea is the **leakage rail**. The invoice carries a hidden `lat
 Real invoice data records what happened **once**, under someone else's chasing policy. It cannot tell you what *would* have happened if you had waited three more days, or called instead of emailed. Without that, a new decision policy cannot be scored at all.
 
 The world model is a pure function that rolls no dice — every random draw a customer will ever need is made once at generation time and frozen onto the invoice. So the baseline can be run over an invoice, time rewound, and the agent run over the *same* invoice. The difference is attributable to the policy alone. That counterfactual is not a shortcut around missing data; it is the only structure that makes the headline metric computable.
+
+## Why there is no LLM in the decision path
+
+This is a deliberate constraint, not an omission, and it is the design decision I would most want to be asked about. **I tested it rather than assumed it** — two LLMs were run as additional cause-inference arms on the same held-out 150 invoices, scored by the same function. The result is [in the table below](#cause-inference), and it is not the result I expected.
+
+**A 550B model matched the decision tree. It did not beat the rules.** Nemotron-3-Ultra-550B scored 72.0% against the tree's 72.0% and the rules' 73.3% — two invoices apart on n=150, which is noise. So the honest claim is *not* that an LLM cannot do this job. At frontier scale it can, and on CHRONIC precision it was the best arm of all four at 84%.
+
+**It still does not ship, because it matches without beating while costing the three properties this project is built on.**
+
+1. **Determinism.** The entire result rests on replaying the *same* invoice under two policies and attributing the difference to the policy alone, which works only because the world model is a pure function with every draw fixed at generation time. LLM calls are not reproducible. Put one in `decide()` and two runs of `--compare` return different numbers, `--verify` fails, and ₹1,67,68,240 stops being a measurement and becomes an anecdote.
+2. **Auditability.** `results/audit_log.jsonl` holds 2,944 rows in which every decision names the rule that produced it and, where applicable, the guardrail that refused it. A receivables system has to be able to tell a regulator, or the customer, why it kept making contact. "The model judged it chronic" is not an answer. A named rule plus a hard veto layer is.
+3. **Cost and latency.** ~3,078 prompt tokens and ~9 seconds per invoice. Scoring all 500 under both policies would be roughly 3M tokens and hours of wall time, against microseconds and zero rupees for a rules cascade that scores *higher*.
+
+That argument survives the LLM being good, which is why it is the one worth making. "We didn't use an LLM because it's bad at this" collapses the moment somebody runs a bigger model — as this repo did, on itself.
+
+**Scale was the whole story, and it cuts both ways.** The 30B model managed 50.7%, barely above the 35.3% you get by always guessing the commonest cause, and found *3 of 30* disputes. The 550B found 20. Had only the small model been tested, this README would have confidently reported that LLMs are unsuited to the task — which the larger model shows would have been wrong. That is the argument for testing the claim you most want to be true.
+
+**Where an LLM does belong here**, and what is scoped out of this build:
+
+- **Drafting the reminder copy.** Deciding *whether* to contact is a rule; deciding *how it reads* — tone, escalation, MSMED Act references where the supplier qualifies — is genuine language work. It sits strictly downstream of the decision and cannot affect any number in this report.
+- **Cause inference at a lower duty cycle.** The 550B's 84% CHRONIC precision is the best of the four arms, and CHRONIC is the one call the agent makes irreversibly. A hybrid that ran the LLM only on invoices the rules arm flags as CHRONIC — a few dozen calls, not 500 — is the version of this worth building, and is in [what I would build next](#what-i-would-build-next-with-real-razorpay-data).
+
+**On the word "agent".** This system perceives a partially observable state, infers a hidden variable it is never shown, selects among eight actions under hard constraints, is overruled 2,009 times by a veto layer, and is measured against a control arm on the same 500 invoices. That is an agent. Whether it emits tokens on the way is an implementation detail, and choosing not to — where determinism and auditability are the requirements, and where the measured gain is zero — is the engineering judgment, not a gap in it.
 
 ## The four hidden causes
 
@@ -113,11 +151,35 @@ Two arms, both scored on the same stratified held-out 150 invoices.
 
 Accuracy is deliberately **not** 100%: 18 of the 150 held-out invoices carry clues generated from the wrong cause and are unlearnable by construction, putting the ceiling near 88%.
 
+### All four arms, side by side
+
+Two LLMs were run as additional arms on the identical held-out 150, graded by the same `score()` function, and given 24 labelled examples in-context drawn from the training split only — the tree gets 350 invoices to fit on, so handing the LLM none would have been a rigged comparison.
+
+| arm | accuracy | CHRONIC precision | DISPUTE recall | deterministic | cost per 150 |
+|---|---:|---:|---:|:---:|---|
+| **rules** (ships) | **73.3%** | 82% | 70% | yes | free |
+| depth-4 tree | 72.0% | 72% | 73% | yes | free |
+| Nemotron-3-Ultra **550B** | 72.0% | **84%** | 67% | no | ~460k tokens, ~9s each |
+| Nemotron-3.5-Lightning **30B** | 50.7% | 80% | **10%** | no | ~460k tokens, ~1s each |
+| *always guess the commonest cause* | *35.3%* | — | — | — | — |
+
+Reproduce with `python run.py --infer-llm`. Answers are cached per model in `results/llm_predictions__*.json`, so this runs with **no API key** and returns identical numbers; `--refresh` re-calls the models and needs a key.
+
+Three things in that table are worth more than the accuracy column:
+
+- **The 30B model found 3 of 30 disputes.** `ROUTE_DISPUTE` is the only action in the menu that resolves a dispute, and disputes are ₹1,45,88,500 of the ₹1,67,68,240 lift. An agent driven by that model would have missed nine-tenths of the one thing this agent is good at. It over-predicted CASH_CRUNCH 79 times against a true count of 37.
+- **The 550B fixed exactly that** — DISPUTE recall 10% → 67% — which says the small model's failure was capacity, not category. Testing only the cheap model would have produced a confident and wrong conclusion.
+- **Nothing beat a hand-written cascade** that runs in microseconds, and the reason the rules arm ships is [determinism, auditability and cost](#why-there-is-no-llm-in-the-decision-path), not accuracy.
+
+Both LLM runs used `temperature=0`, a fixed seed, and thinking disabled via `chat_template_kwargs`. That last one matters: both Nemotron models reason by default, and with thinking on the 30B spent **over 900 completion tokens without reaching an answer**, against 5 tokens with it off. For a single-label classification there is no chain of thought worth buying.
+
 ### Why the rules arm ships, and it is not because it scored higher
 
 The arms finish **2 invoices apart on n=150**, which is noise, not a result. The tie-break that matters is **precision on CHRONIC — 82% vs 72%** — because CHRONIC is the only guess this agent acts on *irreversibly*: it leads to `WRITE_OFF`, which is terminal. A false CHRONIC does not waste ₹20 on an email; it discards an invoice that would have paid in full. On this split that is 6 invoices wrongly written off under the rules arm against 8 under the tree.
 
 A second reason: the rules arm is not trained on anything, so all 500 invoices are effectively held out when the agent runs. A tree-driven agent would be scored partly on its own training data.
+
+The 550B LLM complicates this honestly rather than neatly. It posts the *best* CHRONIC precision of any arm at 84%, so a strict reading of the criterion above would pick it. It does not ship because it ties the tree on accuracy, loses to the rules, and cannot be run inside a decision loop that has to be deterministic, auditable and free — see [why there is no LLM in the decision path](#why-there-is-no-llm-in-the-decision-path).
 
 <details>
 <summary><b>The full decision tree</b> — the entire model, capped at depth 4 so a human can read it</summary>
@@ -216,8 +278,9 @@ I kept `WRITE_OFF`, because it is what the spec I wrote says, and reporting the 
 
 1. **Replace the simulator's payment rules with a survival model fitted to real settlement times**, keeping the counterfactual harness exactly as it is. The harness is the reusable asset here; the world model is the part that should be learned rather than assumed.
 2. **Make the action irreversibility explicit in the decision rule.** Failures 1 and 4 are both the same bug: expected value is computed as if every action were reversible. `WRITE_OFF` should require a much higher confidence bar than `NUDGE_SOFT`, scaled by invoice value — a cost-sensitive threshold per action, not one classifier feeding all four playbooks.
-3. **Find a feature that carries timing.** Failure 3 is unfixable by modelling. Payment-history seasonality, GST filing dates, or observed settlement patterns on the customer's *other* invoices would give the agent something real to aim at instead of the middle of a range it cannot see into.
-4. **Run online with a holdout arm.** The counterfactual argument that makes this simulation legitimate is the same argument for keeping a permanent random-assignment control group in production — otherwise the lift stops being measurable the moment it ships.
+3. **Use the LLM where it actually won.** The 550B's 84% CHRONIC precision beat every other arm, and CHRONIC is the single call the agent makes irreversibly. Running it only on invoices the rules arm flags as CHRONIC is a few dozen calls per batch rather than 500, keeps the deterministic rules cascade in charge of everything else, and buys a second opinion exactly where a mistake costs a whole invoice. That is a targeted use of an expensive tool, not a wholesale replacement.
+4. **Find a feature that carries timing.** Failure 3 is unfixable by modelling. Payment-history seasonality, GST filing dates, or observed settlement patterns on the customer's *other* invoices would give the agent something real to aim at instead of the middle of a range it cannot see into.
+5. **Run online with a holdout arm.** The counterfactual argument that makes this simulation legitimate is the same argument for keeping a permanent random-assignment control group in production — otherwise the lift stops being measurable the moment it ships.
 
 ## Repo layout
 
@@ -228,15 +291,21 @@ src/simulator.py          generates 500 invoices, hidden causes, correlated clue
 src/world_model.py        step(state, action, day) — pure, deterministic
 src/harness.py            the scoreboard + the run-time leakage rail
 src/inference.py          rules arm and depth-4 tree, both scored held-out
+src/llm_arm.py            two LLM arms, cached; evaluation only, never in decide()
 src/guardrails.py         the veto layer — can overrule any policy
 src/policies/baseline.py  the fixed ladder
 src/policies/agent.py     inference → playbook per cause
 src/audit.py              append-only JSONL decision log
 src/report.py             generates results/report.md and both charts
 verify_phase1.py          34 checks, including a determinism proof
+web/export_data.py        re-runs both policies, dumps web/data.json
+web/app.html              the console template, with a __DATA__ slot
+web/build.py              inlines data.json, writes web/dashboard.html
+docs/architecture.svg     the diagram above
+docs/video-script.md      demo walkthrough
 ```
 
-Stack: Python 3.11, pandas, numpy, scikit-learn, matplotlib. No LLM is used for any pay/wait/write-off decision — that logic is rule-based and auditable end to end.
+Stack: Python 3.11, pandas, numpy, scikit-learn, matplotlib; `openai` only for the optional LLM arm. No LLM is used for any pay/wait/write-off decision — that logic is rule-based and auditable end to end, and the [measured comparison](#all-four-arms-side-by-side) is why.
 
 ## Verification
 
@@ -244,3 +313,4 @@ Stack: Python 3.11, pandas, numpy, scikit-learn, matplotlib. No LLM is used for 
 - `results/audit_log.jsonl` — 2,944 rows, one per decision, every one with a reason; 2,009 guardrail vetoes
 - `python run.py --verify` — 34 checks including a byte-identical determinism proof across two runs
 - Every number in `results/report.md` is computed from the runs by `src/report.py`. None is typed in.
+- `web/dashboard.html` is generated from `web/data.json`, which is produced by the same two functions the report uses — the console and the report cannot disagree.

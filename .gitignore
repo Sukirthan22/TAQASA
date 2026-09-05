@@ -8,3 +8,7 @@ venv/
 # results/ is deliberately NOT ignored: report.md, the charts and the
 # audit log are deliverables a reader must be able to see without running
 # anything. data/invoices.csv is committed for the same reason.
+
+# Never commit API keys.
+.env
+*.env

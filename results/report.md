@@ -83,6 +83,24 @@ Held-out split of 150 invoices, stratified, never trained on. Accuracy is delibe
 
 Across all 500 invoices the agent guessed: 148 FORGOTTEN, 119 CASH_CRUNCH, 126 DISPUTE, 107 CHRONIC.
 
+### The LLM arms — tested, not assumed
+
+Two language models were run as additional inference arms on the identical held-out split, graded by the same function, and given 24 labelled examples in-context drawn from the training split only. The tree fits on 350 invoices, so giving the LLM none would have been a rigged comparison.
+
+| arm | accuracy | CHRONIC precision | DISPUTE recall | deterministic |
+|---|---:|---:|---:|:---:|
+| rules | 73.3% | 82% | 70% | yes |
+| depth-4 tree | 72.0% | 72% | 73% | yes |
+| nemotron-3-ultra-550b-a55b | 72.0% | 84% | 67% | no |
+| nemotron-3.5-lightning-30b-a3b | 50.7% | 80% | 10% | no |
+| *always guess the commonest cause* | *35.3%* | — | — | — |
+
+**The largest model matched the tree and lost to the rules.** nemotron-3-ultra-550b-a55b scored 72.0% against the tree's 72.0% and the rules' 73.3% — 2 invoices apart on n=150, which is noise. On CHRONIC precision it was the best arm of all at 84%. So the honest finding is not that an LLM cannot do this; at scale it can.
+
+**But the small model would have produced the opposite conclusion.** nemotron-3.5-lightning-30b-a3b scored 50.7%, barely above the 35.3% floor, and found only 3 of 30 disputes against the larger model's 20. Since `ROUTE_DISPUTE` is the only action that resolves a dispute, and disputes are Rs 1,46,11,400 of the lift, an agent driven by the small model would have forfeited most of what this one earns. Testing only the cheap model would have yielded a confident and wrong claim.
+
+Neither ships. The rules arm is kept because it scores highest and because a decision loop that must be deterministic, auditable and free cannot contain a non-reproducible remote call — the argument holds precisely because the LLM turned out to be good.
+
 ## 5. Charts
 
 ![Recovery by cause](chart_recovery_by_cause.png)

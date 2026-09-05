@@ -456,6 +456,71 @@ def build(baseline, agent, df, path: str = None) -> str:
       + ", ".join(f"{guess_counts.get(c, 0)} {c}" for c in cfg.CAUSES) + ".")
     w("")
 
+    # ---- the LLM arms, if they have been run -----------------------------
+    llm_scores = []
+    try:
+        from src.llm_arm import LLMClassifier, load_all_cached
+
+        for payload in load_all_cached():
+            if payload.get("partial"):
+                continue
+            llm_scores.append((payload, score(LLMClassifier(payload), test)))
+    except FileNotFoundError:
+        llm_scores = []
+
+    if llm_scores:
+        floor = test["latent_cause"].value_counts().iloc[0] / len(test)
+        w("### The LLM arms — tested, not assumed")
+        w("")
+        w("Two language models were run as additional inference arms on the "
+          "identical held-out split, graded by the same function, and given "
+          f"{llm_scores[0][0]['fewshot_n']} labelled examples in-context drawn "
+          "from the training split only. The tree fits on 350 invoices, so "
+          "giving the LLM none would have been a rigged comparison.")
+        w("")
+        w("| arm | accuracy | CHRONIC precision | DISPUTE recall | deterministic |")
+        w("|---|---:|---:|---:|:---:|")
+        rows = [("rules", rules_score, "yes"), ("depth-4 tree", tree_score, "yes")]
+        rows += [(p["model"].split("/")[-1], s, "no") for p, s in llm_scores]
+        for label, s, det in sorted(rows, key=lambda r: -r[1].accuracy):
+            w(f"| {label} | {s.accuracy:.1%} | "
+              f"{s.per_cause_precision[cfg.CHRONIC]:.0%} | "
+              f"{s.per_cause_recall[cfg.DISPUTE]:.0%} | {det} |")
+        w(f"| *always guess the commonest cause* | *{floor:.1%}* | — | — | — |")
+        w("")
+
+        best_llm = max(llm_scores, key=lambda x: x[1].accuracy)
+        worst_llm = min(llm_scores, key=lambda x: x[1].accuracy)
+        bp, bs = best_llm
+        wp, ws = worst_llm
+        w(f"**The largest model matched the tree and lost to the rules.** "
+          f"{bp['model'].split('/')[-1]} scored {bs.accuracy:.1%} against the "
+          f"tree's {tree_score.accuracy:.1%} and the rules' "
+          f"{rules_score.accuracy:.1%} — "
+          f"{abs(round((rules_score.accuracy - bs.accuracy) * len(test)))} "
+          f"invoices apart on n={len(test)}, which is noise. On CHRONIC "
+          f"precision it was the best arm of all at "
+          f"{bs.per_cause_precision[cfg.CHRONIC]:.0%}. So the honest finding is "
+          f"not that an LLM cannot do this; at scale it can.")
+        w("")
+        w(f"**But the small model would have produced the opposite conclusion.** "
+          f"{wp['model'].split('/')[-1]} scored {ws.accuracy:.1%}, barely above "
+          f"the {floor:.1%} floor, and found only "
+          f"{ws.matrix[cfg.CAUSES.index(cfg.DISPUTE)][cfg.CAUSES.index(cfg.DISPUTE)]} "
+          f"of {int(ws.matrix[cfg.CAUSES.index(cfg.DISPUTE)].sum())} disputes "
+          f"against the larger model's "
+          f"{bs.matrix[cfg.CAUSES.index(cfg.DISPUTE)][cfg.CAUSES.index(cfg.DISPUTE)]}. "
+          f"Since `ROUTE_DISPUTE` is the only action that resolves a dispute, and "
+          f"disputes are {rs(d_dispute)} of the lift, an agent driven by the small "
+          f"model would have forfeited most of what this one earns. Testing only "
+          f"the cheap model would have yielded a confident and wrong claim.")
+        w("")
+        w("Neither ships. The rules arm is kept because it scores highest and "
+          "because a decision loop that must be deterministic, auditable and "
+          "free cannot contain a non-reproducible remote call — the argument "
+          "holds precisely because the LLM turned out to be good.")
+        w("")
+
     # ---- charts ----------------------------------------------------------
     w("## 5. Charts")
     w("")

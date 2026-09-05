@@ -1,0 +1,1559 @@
+<title>TAQASA</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* ===================================================================
+   B2B Receivables Chaser — operator console
+   Single committed dark treatment: this is an ops surface, not a doc.
+   Every colour is painted explicitly so it holds on any host ground.
+   =================================================================== */
+
+:root{
+  --ink:#08090B;        /* page ground */
+  --panel:#101215;      /* card surface */
+  --well:#16191E;       /* inner well */
+  --well-2:#1B1F26;     /* hover / stripe */
+  --line:#23272F;       /* hairline */
+  --line-2:#2E333D;     /* stronger divider */
+
+  --text:#ECEFF3;
+  --muted:#8A929E;
+  --dim:#5C6470;
+
+  --agent:#4B87FF;      /* the agent — the one bold accent */
+  --agent-soft:rgba(75,135,255,.14);
+  --base:#7A8494;       /* the control arm, deliberately neutral */
+
+  --forgotten:#16AB9D;
+  --cash:#B8871C;
+  --dispute:#8A6BEE;
+  --chronic:#A93080;
+
+  --good:#35B37E;       /* reserved status — never a series colour */
+  --bad:#E2564F;
+  --warn:#D99A2B;
+
+  --r-lg:20px; --r-md:14px; --r-sm:9px;
+
+  --display:"Outfit",-apple-system,"Segoe UI",sans-serif;
+  --ui:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ink); color:var(--text);
+  font-family:var(--ui); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--agent);outline-offset:2px;border-radius:4px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ------------------------------------------------- */
+.bezel{
+  max-width:1560px; margin:0 auto; padding:18px;
+}
+.app{
+  display:grid; grid-template-columns:70px 1fr;
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--r-lg); overflow:hidden;
+  min-height:900px;
+}
+
+/* ---------- icon rail --------------------------------------------- */
+.rail{
+  background:var(--ink); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; align-items:center;
+  padding:18px 0 20px; gap:8px;
+}
+.logo{
+  width:38px;height:38px;border-radius:11px;
+  display:grid;place-items:center;margin-bottom:18px;
+  background:linear-gradient(150deg,#2B62D6,#4B87FF);
+  color:#fff;
+}
+.rail button{
+  width:42px;height:42px;border-radius:12px;
+  display:grid;place-items:center;color:var(--dim);
+  transition:color .15s, background .15s;
+}
+.rail button:hover{color:var(--text);background:var(--well)}
+.rail button[aria-current="page"]{background:var(--text);color:var(--ink)}
+.rail .spacer{flex:1}
+.rail svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- top bar ----------------------------------------------- */
+.main{display:flex;flex-direction:column;min-width:0}
+.topbar{
+  display:flex;align-items:center;gap:16px;
+  padding:22px 26px 18px;
+}
+.topbar h1{
+  font-family:var(--display);font-size:29px;font-weight:600;
+  letter-spacing:-.02em;margin:0;
+}
+.brandwrap{flex:1;min-width:0}
+.brand{
+  font-family:var(--display);font-size:11px;font-weight:700;
+  letter-spacing:.16em;color:var(--agent);margin:0 0 2px;
+}
+.search{
+  display:flex;align-items:center;gap:9px;
+  background:var(--well);border:1px solid var(--line);
+  border-radius:999px;padding:9px 16px;width:260px;
+}
+.search svg{width:15px;height:15px;stroke:var(--dim);fill:none;stroke-width:1.8}
+.search input{
+  background:none;border:none;color:var(--text);font:inherit;
+  width:100%;outline:none;font-family:var(--mono);font-size:12.5px;
+}
+.search input::placeholder{color:var(--dim);font-family:var(--ui)}
+.runpill{
+  display:flex;align-items:center;gap:11px;
+  background:var(--well);border:1px solid var(--line);
+  border-radius:999px;padding:7px 16px 7px 9px;
+}
+.runpill .dot{
+  width:26px;height:26px;border-radius:50%;background:var(--agent-soft);
+  display:grid;place-items:center;color:var(--agent);
+  font-family:var(--mono);font-size:10px;font-weight:600;
+}
+.runpill b{display:block;font-size:12px;font-weight:600;letter-spacing:.01em}
+.runpill span{display:block;font-size:10.5px;color:var(--dim);
+  font-family:var(--mono);letter-spacing:.02em}
+
+/* ---------- grid -------------------------------------------------- */
+.view{padding:0 26px 26px;display:none;flex-direction:column;gap:16px}
+.view.on{display:flex}
+.row{display:grid;gap:16px}
+.row.hero{grid-template-columns:minmax(0,1.92fr) minmax(0,1fr)}
+.row.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.row.two{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+
+.card{
+  background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:20px;min-width:0;
+  display:flex;flex-direction:column;
+}
+.card.well{background:var(--well)}
+.card h2{
+  font-family:var(--display);font-size:17px;font-weight:600;
+  margin:0;letter-spacing:-.01em;
+}
+.card-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.card-head .grow{flex:1}
+.eyebrow{
+  font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;
+}
+
+/* ---------- segmented toggle -------------------------------------- */
+.seg{display:flex;background:var(--well);border-radius:999px;padding:3px;gap:2px}
+.seg button{
+  padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:500;
+  color:var(--muted);transition:.15s;white-space:nowrap;
+}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--text);color:var(--ink);font-weight:600}
+
+/* ---------- hero numbers ------------------------------------------ */
+.hero-figs{display:flex;align-items:flex-end;gap:18px;margin:14px 0 6px;flex-wrap:wrap}
+.bignum{
+  font-family:var(--display);font-size:44px;font-weight:600;
+  letter-spacing:-.025em;line-height:1;font-variant-numeric:tabular-nums;
+}
+.delta{
+  display:inline-flex;align-items:center;gap:5px;
+  background:rgba(53,179,126,.14);color:var(--good);
+  border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:600;
+  font-variant-numeric:tabular-nums;
+}
+.delta.neg{background:rgba(226,86,79,.14);color:var(--bad)}
+.delta svg{width:11px;height:11px;fill:currentColor;stroke:none}
+.vs{font-size:12.5px;color:var(--muted);padding-bottom:3px}
+.vs b{color:var(--text);font-weight:600;font-family:var(--mono)}
+
+/* ---------- charts ------------------------------------------------ */
+.chartwrap{position:relative;margin-top:8px}
+.chartwrap svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transition:opacity .1s;
+  background:#040507;border:1px solid var(--line-2);border-radius:10px;
+  padding:9px 12px;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.6);
+  z-index:5;white-space:nowrap;
+}
+.tip.on{opacity:1}
+.tip .r{display:flex;align-items:center;gap:8px;justify-content:space-between;gap:18px}
+.tip .k{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.tip .sw{width:8px;height:8px;border-radius:2px;flex:none}
+.tip b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500}
+.tip .hd{font-family:var(--mono);font-size:10.5px;color:var(--dim);
+  letter-spacing:.04em;margin-bottom:6px;text-transform:uppercase}
+
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:auto;padding-top:14px}
+.netline{
+  margin-top:10px;font-size:12px;color:var(--muted);line-height:1.55;max-width:64ch;
+}
+.netline b{color:var(--text);font-weight:600;font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
+.netline .g{color:var(--good);font-weight:600}
+.legend .li{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.legend .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.legend .sw.line{height:3px;border-radius:2px;width:14px}
+
+/* ---------- day grid (the reference's calendar, re-read as the clock) */
+.clock-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.clock-head .lbl{flex:1;font-family:var(--display);font-size:15px;font-weight:600}
+.iconbtn{
+  width:30px;height:30px;border-radius:9px;background:var(--well);
+  border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);
+  transition:.15s;
+}
+.iconbtn:hover{color:var(--text);border-color:var(--line-2)}
+.iconbtn svg{width:13px;height:13px;fill:currentColor;stroke:none}
+.iconbtn.play{background:var(--agent);border-color:var(--agent);color:#fff;width:auto;padding:0 13px;gap:6px;display:flex;align-items:center;font-size:12px;font-weight:600}
+.iconbtn.play:hover{background:#5D93FF}
+
+.daygrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.daygrid .dow{
+  text-align:center;font-size:9.5px;color:var(--dim);font-family:var(--mono);
+  padding-bottom:4px;letter-spacing:.03em;
+}
+.daygrid button{
+  aspect-ratio:1;border-radius:8px;font-family:var(--mono);font-size:11px;
+  color:var(--muted);display:grid;place-items:center;position:relative;
+  border:1px solid transparent;transition:.12s;font-variant-numeric:tabular-nums;
+}
+.daygrid button:hover{border-color:var(--line-2);color:var(--text)}
+.daygrid button.cash{color:var(--text)}
+.daygrid button.now{background:var(--agent);color:#fff;font-weight:600;border-color:var(--agent)}
+.daygrid button.now::after{
+  content:"";position:absolute;bottom:3px;left:50%;transform:translateX(-50%);
+  width:3px;height:3px;border-radius:50%;background:#fff;
+}
+.daygrid button.mark{box-shadow:inset 0 0 0 1px var(--line-2)}
+
+.clock-foot{
+  margin-top:14px;background:var(--well);border-radius:var(--r-md);
+  padding:14px 16px;display:flex;align-items:center;gap:13px;
+}
+.clock-foot .ic{
+  width:38px;height:38px;border-radius:10px;background:var(--panel);
+  display:grid;place-items:center;color:var(--agent);flex:none;
+}
+.clock-foot .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.clock-foot .v{font-family:var(--display);font-size:23px;font-weight:600;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.clock-foot .l{font-size:11px;color:var(--dim)}
+
+/* ---------- decision feed ----------------------------------------- */
+.feed{
+  display:flex;flex-direction:column;gap:7px;margin-top:14px;
+  overflow-y:auto;max-height:322px;padding-right:5px;
+}
+.feed::-webkit-scrollbar{width:5px}
+.feed::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+.dec{
+  background:var(--well);border-radius:11px;padding:10px 12px;
+  border-left:2px solid var(--line-2);
+}
+.dec.veto{border-left-color:var(--warn)}
+.dec.paid{border-left-color:var(--good)}
+.dec-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.dec-top .id{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.dec-top .day{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:auto}
+.act{
+  font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.02em;
+  padding:2px 7px;border-radius:5px;background:var(--panel);color:var(--text);
+}
+.act.wait{color:var(--dim)}
+.act.money{color:var(--good);background:rgba(53,179,126,.12)}
+.act.kill{color:var(--bad);background:rgba(226,86,79,.12)}
+.dec .why{font-size:11.5px;color:var(--muted);line-height:1.45}
+.dec .why em{color:var(--text);font-style:normal}
+.dec .veto-line{
+  margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--warn);
+  display:flex;align-items:center;gap:5px;
+}
+.dec .veto-line svg{width:11px;height:11px;fill:currentColor;stroke:none;flex:none}
+
+/* ---------- donut ------------------------------------------------- */
+.donut-wrap{display:flex;align-items:center;gap:18px;margin-top:10px}
+.donut-wrap svg{flex:none}
+.dlegend{display:flex;flex-direction:column;gap:9px;flex:1;min-width:0}
+.dlegend .li{display:flex;align-items:center;gap:9px;font-size:12px}
+.dlegend .sw{width:9px;height:9px;border-radius:3px;flex:none}
+.dlegend .nm{color:var(--muted);flex:1;font-family:var(--mono);font-size:11px}
+.dlegend .vl{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:11.5px}
+
+.note{
+  margin-top:14px;background:var(--well);border-radius:11px;padding:11px 13px;
+  display:flex;gap:10px;font-size:11.5px;color:var(--muted);line-height:1.5;
+}
+.note svg{width:14px;height:14px;flex:none;margin-top:2px;fill:var(--agent);stroke:none}
+.note b{color:var(--text);font-weight:600}
+
+/* ---------- meter + invoice rows ---------------------------------- */
+.meter{
+  background:var(--well);border-radius:11px;padding:11px 14px;
+  display:flex;align-items:center;gap:12px;margin-top:12px;
+}
+.meter .lb{font-size:11px;color:var(--muted);white-space:nowrap}
+.meter .bars{flex:1;display:flex;gap:2px;height:16px;align-items:center}
+.meter .bars i{flex:1;height:100%;border-radius:1px;background:var(--line)}
+.meter .bars i.f{background:var(--agent)}
+.meter .vv{font-family:var(--mono);font-size:14px;font-weight:600;
+  font-variant-numeric:tabular-nums}
+
+.inv-rows{display:flex;flex-direction:column;margin-top:6px}
+.inv-row{
+  display:flex;align-items:center;gap:11px;padding:11px 2px;
+  border-bottom:1px solid var(--line);text-align:left;width:100%;
+}
+.inv-row:last-child{border-bottom:none}
+.inv-row:hover{background:var(--well)}
+.inv-row .dt{width:52px;flex:none}
+.inv-row .dt b{display:block;font-family:var(--mono);font-size:11.5px;font-weight:500}
+.inv-row .dt span{display:block;font-size:10px;color:var(--dim)}
+.inv-row .nm{flex:1;min-width:0;font-family:var(--mono);font-size:11.5px;
+  color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inv-row .am{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.pill{
+  display:inline-flex;align-items:center;gap:5px;border-radius:999px;
+  padding:3px 9px;font-size:10.5px;font-weight:600;white-space:nowrap;
+}
+.pill .d{width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+.pill.paid{background:rgba(53,179,126,.13);color:var(--good)}
+.pill.off{background:rgba(226,86,79,.13);color:var(--bad)}
+.pill.open{background:rgba(217,154,43,.13);color:var(--warn)}
+
+.linkbtn{
+  margin-top:14px;display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:600;color:var(--agent);align-self:flex-start;
+}
+.linkbtn:hover{text-decoration:underline}
+.linkbtn svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* ---------- tables ------------------------------------------------ */
+.tblwrap{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{
+  text-align:left;font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;padding:0 12px 9px 0;white-space:nowrap;
+  border-bottom:1px solid var(--line);
+}
+td{padding:10px 12px 10px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+.r{text-align:right}
+th.r{padding-right:0}td.r{padding-right:0}
+.pos{color:var(--good)}
+.negv{color:var(--bad)}
+tr.total td{border-top:1px solid var(--line-2);border-bottom:none;
+  font-weight:600;padding-top:12px}
+
+/* ---------- cause tag --------------------------------------------- */
+.tag{
+  display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);
+  font-size:11px;letter-spacing:.01em;
+}
+.tag .d{width:8px;height:8px;border-radius:2.5px;flex:none}
+
+/* ---------- arms -------------------------------------------------- */
+.arm{
+  display:grid;grid-template-columns:1fr auto;gap:4px 14px;padding:13px 14px;
+  border-radius:11px;background:var(--well);margin-bottom:8px;
+  border:1px solid transparent;text-align:left;width:100%;transition:.15s;
+}
+.arm:hover{border-color:var(--line-2)}
+.arm[aria-pressed="true"]{border-color:var(--agent);background:var(--agent-soft)}
+.arm .nm{font-family:var(--mono);font-size:12.5px;display:flex;align-items:center;gap:8px}
+.arm .ac{font-family:var(--display);font-size:19px;font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.arm .track{grid-column:1/-1;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:3px}
+.arm .track i{display:block;height:100%;border-radius:2px;background:var(--agent)}
+.arm .sub{grid-column:1/-1;font-size:11px;color:var(--dim);display:flex;gap:14px;
+  font-family:var(--mono);flex-wrap:wrap}
+.ships{
+  font-size:9.5px;font-weight:700;letter-spacing:.07em;padding:2px 6px;
+  border-radius:4px;background:var(--agent);color:#fff;
+}
+.nodet{
+  font-size:9.5px;font-weight:600;letter-spacing:.05em;padding:2px 6px;
+  border-radius:4px;background:rgba(217,154,43,.15);color:var(--warn);
+}
+
+.cm{border-collapse:separate;border-spacing:3px;font-family:var(--mono);font-size:12px}
+.cm th{border:none;padding:0 0 4px;font-size:9.5px;text-align:center}
+.cm th.rowh{text-align:right;padding-right:8px;padding-bottom:0}
+.cm td{border:none;padding:0}
+.cm .cell{
+  width:56px;height:44px;border-radius:8px;display:grid;place-items:center;
+  font-variant-numeric:tabular-nums;
+}
+.cm .cell.diag{box-shadow:inset 0 0 0 1.5px var(--forgotten)}
+.cm td.rowh{
+  text-align:right;padding-right:9px;font-size:10.5px;color:var(--muted);
+  white-space:nowrap;
+}
+
+/* ---------- ledger ------------------------------------------------ */
+.chips{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.chip{
+  padding:6px 12px;border-radius:999px;font-size:11.5px;font-weight:500;
+  background:var(--well);border:1px solid var(--line);color:var(--muted);
+  display:inline-flex;align-items:center;gap:7px;transition:.15s;
+}
+.chip:hover{color:var(--text);border-color:var(--line-2)}
+.chip[aria-pressed="true"]{background:var(--text);color:var(--ink);
+  border-color:var(--text);font-weight:600}
+.chip[aria-pressed="true"] .d{box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.chip .d{width:8px;height:8px;border-radius:2.5px;flex:none}
+
+.ledger{overflow-y:auto;max-height:520px}
+.ledger::-webkit-scrollbar{width:6px}
+.ledger::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:3px}
+.ledger table{width:100%}
+.ledger thead th{position:sticky;top:0;background:var(--panel);z-index:2}
+.ledger tbody tr{cursor:pointer}
+.ledger tbody tr:hover td{background:var(--well)}
+.ledger tbody tr[aria-selected="true"] td{background:var(--agent-soft)}
+.wrong{color:var(--bad);font-weight:600}
+
+.insp{display:flex;flex-direction:column;gap:0}
+.insp .hd{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+.insp .hd .id{font-family:var(--mono);font-size:17px;font-weight:600}
+.insp .amt{font-family:var(--display);font-size:31px;font-weight:600;
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:8px 0 2px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;margin:14px 0;
+  font-size:12px;align-items:center}
+.kv .k{color:var(--dim);font-size:11px}
+.kv .v{font-family:var(--mono);font-size:11.5px}
+
+.tl{position:relative;padding-left:18px;margin-top:6px}
+.tl::before{content:"";position:absolute;left:4px;top:6px;bottom:6px;
+  width:1px;background:var(--line-2)}
+.tl .ev{position:relative;padding:8px 0}
+.tl .ev::before{
+  content:"";position:absolute;left:-18px;top:13px;width:7px;height:7px;
+  border-radius:50%;background:var(--line-2);box-shadow:0 0 0 3px var(--panel);
+}
+.tl .ev.money::before{background:var(--good)}
+.tl .ev.veto::before{background:var(--warn)}
+.tl .ev.kill::before{background:var(--bad)}
+.tl .ev .t{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.tl .ev .d{font-family:var(--mono);font-size:10.5px;color:var(--dim);width:44px;flex:none}
+.tl .ev .w{font-size:11.5px;color:var(--muted);line-height:1.45;padding-left:52px}
+
+.cf{
+  margin-top:14px;background:var(--well);border-radius:11px;padding:13px 15px;
+}
+.cf .t{font-size:11px;color:var(--dim);margin-bottom:9px;
+  letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.cf .rr{display:flex;justify-content:space-between;align-items:baseline;
+  padding:5px 0;font-size:12px}
+.cf .rr .k{color:var(--muted)}
+.cf .rr .v{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.empty{color:var(--dim);font-size:12.5px;padding:40px 0;text-align:center}
+
+/* ---------- footer ------------------------------------------------ */
+.foot{
+  display:flex;flex-wrap:wrap;gap:8px 22px;padding:16px 26px 24px;
+  font-size:11px;color:var(--dim);font-family:var(--mono);
+  border-top:1px solid var(--line);margin:8px 26px 0;padding-left:0;padding-right:0;
+}
+.foot b{color:var(--muted);font-weight:500}
+
+@media (max-width:1180px){
+  .row.hero,.row.three,.row.two{grid-template-columns:1fr}
+  .bignum{font-size:36px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+
+<div class="bezel">
+<div class="app">
+
+  <!-- ================= icon rail ================= -->
+  <nav class="rail" aria-label="Sections">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6h16M4 12h10M4 18h6"/><path d="M17 14l4 4-4 4"/>
+      </svg>
+    </div>
+    <button data-view="overview" aria-current="page" title="Overview">
+      <svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+    <button data-view="attribution" title="Lift attribution">
+      <svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M6 21V10M11 21V4M16 21v-7M21 21v-4"/></svg>
+    </button>
+    <button data-view="inference" title="Cause inference">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+    <button data-view="ledger" title="Invoice ledger">
+      <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9.5 8h5M9.5 12h5"/></svg>
+    </button>
+    <div class="spacer"></div>
+    <button data-view="method" title="Method &amp; guardrails">
+      <svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    </button>
+  </nav>
+
+  <div class="main">
+
+    <!-- ================= top bar ================= -->
+    <header class="topbar">
+      <div class="brandwrap">
+        <p class="brand">TAQASA</p>
+        <h1 id="viewTitle">Overview</h1>
+      </div>
+      <label class="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="globalSearch" type="search" placeholder="Find invoice…" aria-label="Find invoice by id">
+      </label>
+      <div class="runpill">
+        <span class="dot">42</span>
+        <span>
+          <b>Deterministic run</b>
+          <span id="runMeta">500 invoices · 90 days</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- ================= OVERVIEW ================= -->
+    <section class="view on" id="view-overview">
+      <div class="row hero">
+
+        <!-- cash collected -->
+        <div class="card">
+          <div class="card-head">
+            <h2>Cash collected</h2>
+            <div class="grow"></div>
+            <div class="seg" id="cashMode" role="group" aria-label="Series shown">
+              <button data-m="both" aria-pressed="true">Both</button>
+              <button data-m="agent" aria-pressed="false">Agent</button>
+              <button data-m="baseline" aria-pressed="false">Baseline</button>
+            </div>
+          </div>
+          <div class="hero-figs">
+            <div class="bignum" id="cashBig">—</div>
+            <div class="delta" id="cashDelta">—</div>
+            <div class="vs">vs <b id="cashBase">—</b> baseline</div>
+          </div>
+          <div class="netline" id="netLine"></div>
+          <div class="chartwrap" id="cashChart"><div class="tip" id="cashTip"></div></div>
+          <div class="legend">
+            <div class="li"><span class="sw line" style="background:var(--agent)"></span>Agent</div>
+            <div class="li"><span class="sw line" style="background:var(--base)"></span>Baseline — fixed ladder</div>
+            <div class="li"><span class="sw" style="background:var(--agent-soft)"></span>Agent ahead</div>
+          </div>
+        </div>
+
+        <!-- the 90-day clock: the reference's calendar, re-read -->
+        <div class="card">
+          <div class="clock-head">
+            <button class="iconbtn" id="dayPrev" aria-label="Previous day">
+              <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7z"/></svg>
+            </button>
+            <span class="lbl">Day <span class="mono" id="dayLabel">90</span> past due</span>
+            <button class="iconbtn play" id="playBtn">
+              <svg viewBox="0 0 24 24" id="playIcon"><path d="M7 4l12 8-12 8z"/></svg>
+              <span id="playLabel">Replay</span>
+            </button>
+            <button class="iconbtn" id="dayNext" aria-label="Next day">
+              <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7z"/></svg>
+            </button>
+          </div>
+          <div class="daygrid" id="dayGrid" role="group" aria-label="Scrub to a day past due"></div>
+          <div class="clock-foot">
+            <span class="ic">
+              <svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 3 8-8"/><path d="M16 7h5v5"/></svg>
+            </span>
+            <div>
+              <div class="v" id="clockCash">—</div>
+              <div class="l" id="clockSub">collected by this day</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row three">
+
+        <!-- decision feed -->
+        <div class="card">
+          <div class="card-head">
+            <h2>Why this decision</h2>
+            <div class="grow"></div>
+            <span class="eyebrow" id="feedCount">—</span>
+          </div>
+          <div class="eyebrow" style="margin-top:2px">Append-only audit log</div>
+          <div class="feed" id="feed"></div>
+        </div>
+
+        <!-- recovery by cause -->
+        <div class="card">
+          <div class="card-head">
+            <h2>Recovered by cause</h2>
+            <div class="grow"></div>
+            <span class="eyebrow">Hidden from the agent</span>
+          </div>
+          <div class="donut-wrap">
+            <div id="donut"></div>
+            <div class="dlegend" id="donutLegend"></div>
+          </div>
+          <div class="note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/>
+              <path d="M12 7v6M12 16v1" stroke="#101215" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <div id="donutNote">—</div>
+          </div>
+        </div>
+
+        <!-- invoices -->
+        <div class="card">
+          <div class="card-head">
+            <h2>Invoices</h2>
+            <div class="grow"></div>
+            <span class="eyebrow" id="invCount">—</span>
+          </div>
+          <div class="meter">
+            <span class="lb">Recovery rate</span>
+            <span class="bars" id="rateBars"></span>
+            <span class="vv" id="rateVal">—</span>
+          </div>
+          <div class="inv-rows" id="invRows"></div>
+          <button class="linkbtn" data-goto="ledger">
+            View full ledger
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ATTRIBUTION ================= -->
+    <section class="view" id="view-attribution">
+      <div class="row two">
+        <div class="card">
+          <div class="card-head">
+            <h2>Recovered per hidden cause</h2>
+            <div class="grow"></div>
+            <span class="eyebrow">Rupees, both policies</span>
+          </div>
+          <div class="chartwrap" id="causeBars"><div class="tip" id="barTip"></div></div>
+          <div class="legend">
+            <div class="li"><span class="sw" style="background:var(--base)"></span>Baseline</div>
+            <div class="li"><span class="sw" style="background:var(--agent)"></span>Agent</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>The value of doing nothing</h2></div>
+          <div class="eyebrow" style="margin-top:2px">CHRONIC invoices, correctly left alone</div>
+          <div id="restraint"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Where the lift comes from</h2>
+          <div class="grow"></div>
+          <span class="eyebrow">Reconciles to the headline exactly</span>
+        </div>
+        <div class="tblwrap"><table id="attrTable"></table></div>
+        <div class="note" style="max-width:none">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/>
+            <path d="M12 7v6M12 16v1" stroke="#101215" stroke-width="2.4" stroke-linecap="round"/></svg>
+          <div><b>Two of the four are negative.</b> The entire lift comes from DISPUTE and
+          CHRONIC. On FORGOTTEN and CASH_CRUNCH the agent is actively worse than the dumb
+          ladder — the baseline was already near-perfect there, so every misclassification
+          is pure downside.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= INFERENCE ================= -->
+    <section class="view" id="view-inference">
+      <div class="row two">
+        <div class="card">
+          <div class="card-head">
+            <h2>Four inference arms</h2>
+            <div class="grow"></div>
+            <span class="eyebrow">Same held-out 150</span>
+          </div>
+          <div class="eyebrow" style="margin:2px 0 12px">
+            Accuracy · select an arm to see its confusion matrix
+          </div>
+          <div id="armList"></div>
+          <div class="note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/>
+              <path d="M12 7v6M12 16v1" stroke="#101215" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <div><b>A 550B model matched the tree and lost to the rules.</b>
+            The arms finish 2 invoices apart on n=150, which is noise. The rules arm ships on
+            CHRONIC precision — the only guess the agent acts on irreversibly — and because a
+            decision loop that must be deterministic, auditable and free cannot contain a
+            non-reproducible remote call.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2 id="cmTitle">Confusion matrix</h2>
+            <div class="grow"></div>
+            <span class="eyebrow">Row = truth · Col = guess</span>
+          </div>
+          <div class="tblwrap" style="margin-top:16px"><table class="cm" id="cmTable"></table></div>
+          <div id="cmStats" class="kv" style="margin-top:18px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>What the agent guessed, across all 500</h2>
+          <div class="grow"></div>
+          <span class="eyebrow">Rules arm — the one that ships</span>
+        </div>
+        <div class="tblwrap"><table id="guessTable"></table></div>
+      </div>
+    </section>
+
+    <!-- ================= LEDGER ================= -->
+    <section class="view" id="view-ledger">
+      <div class="card" style="padding:16px 20px">
+        <div class="chips" id="ledgerFilters"></div>
+      </div>
+      <div class="row two">
+        <div class="card">
+          <div class="card-head">
+            <h2>Invoice ledger</h2>
+            <div class="grow"></div>
+            <span class="eyebrow" id="ledgerCount">—</span>
+          </div>
+          <div class="ledger" id="ledgerWrap"><table id="ledgerTable"></table></div>
+        </div>
+        <div class="card" id="inspector"></div>
+      </div>
+    </section>
+
+    <!-- ================= METHOD ================= -->
+    <section class="view" id="view-method">
+      <div class="row two">
+        <div class="card">
+          <div class="card-head"><h2>The leakage rail</h2></div>
+          <div class="eyebrow" style="margin-top:2px">Why the comparison means anything</div>
+          <p style="color:var(--muted);font-size:13px;line-height:1.65;max-width:62ch">
+            Every invoice carries a hidden <span class="mono">latent_cause</span>, and no policy
+            ever receives it. The harness hands policies an <span class="mono">ObservedState</span>
+            built by <span class="mono">redact()</span> — only what a real collections team would
+            know on the morning of day N: what it sent, when, and what came back. Reading ground
+            truth from a policy requires visibly going around a named function.
+          </p>
+          <p style="color:var(--muted);font-size:13px;line-height:1.65;max-width:62ch">
+            The world model rolls no dice. Every random draw a customer will ever need is made
+            once at generation time and frozen onto the invoice, so the baseline can be run,
+            time rewound, and the agent run over the <em style="color:var(--text);font-style:normal">same</em>
+            invoice. The difference is attributable to the policy alone.
+          </p>
+          <div class="tblwrap"><table id="actionTable"></table></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Guardrails</h2></div>
+          <div class="eyebrow" style="margin-top:2px">A veto layer the policy cannot skip</div>
+          <div id="guardList"></div>
+          <div class="note">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/>
+              <path d="M12 7v6M12 16v1" stroke="#101215" stroke-width="2.4" stroke-linecap="round"/></svg>
+            <div>The agent states its intent to escalate from day 0 and the guardrail refuses
+            until the invoice is eligible — <b id="vetoTotal">—</b> refusals in the log. An earlier
+            version duplicated the rule inside the policy and the veto layer fired <b>zero</b>
+            times: an untested guardrail, not a safe one.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Where it fails</h2>
+          <div class="grow"></div>
+          <span class="eyebrow">Found by replaying the same invoice under both policies</span>
+        </div>
+        <div class="tblwrap"><table id="failTable"></table></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span><b>SEED</b> 42</span>
+      <span><b>HORIZON</b> 90 days</span>
+      <span><b>INVOICES</b> 500</span>
+      <span><b>DECISIONS</b> <span id="footDec">—</span></span>
+      <span><b>VETOES</b> <span id="footVeto">—</span></span>
+      <span><b>SOURCE</b> results/report.md — every figure computed, none typed in</span>
+    </footer>
+
+  </div>
+</div>
+</div>
+
+<script id="payload" type="application/json">__DATA__</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("payload").textContent);
+const CAUSES = D.meta.causes;
+const ACTIONS = D.meta.actions;
+const H = D.meta.horizon;
+
+const CC = {FORGOTTEN:"#16AB9D", CASH_CRUNCH:"#B8871C", DISPUTE:"#8A6BEE", CHRONIC:"#A93080"};
+const AGENT = "#4B87FF", BASE = "#7A8494";
+
+/* ---------- formatting: this is an Indian receivables ledger ---------- */
+function rs(n){
+  const neg = n < 0; n = Math.round(Math.abs(n));
+  let s = String(n);
+  if (s.length > 3){
+    let head = s.slice(0, -3); const tail = s.slice(-3); const parts = [];
+    while (head.length > 2){ parts.unshift(head.slice(-2)); head = head.slice(0, -2); }
+    if (head) parts.unshift(head);
+    s = parts.join(",") + "," + tail;
+  }
+  return (neg ? "−" : "") + "₹" + s;
+}
+function short(n){
+  const a = Math.abs(n), sg = n < 0 ? "−" : "";
+  if (a >= 1e7) return sg + "₹" + (a/1e7).toFixed(2).replace(/\.?0+$/,"") + " Cr";
+  if (a >= 1e5) return sg + "₹" + (a/1e5).toFixed(1).replace(/\.0$/,"") + " L";
+  if (a >= 1e3) return sg + "₹" + Math.round(a/1e3) + "k";
+  return sg + "₹" + Math.round(a);
+}
+const pct = x => (x*100).toFixed(1) + "%";
+const el = (t, c, h) => { const n = document.createElement(t);
+  if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
+const esc = s => String(s).replace(/[&<>]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+
+/* ---------- precompute ------------------------------------------------ */
+const perDay = Array.from({length: H+1}, () => []);
+const causeCumA = {}, causeCumB = {};
+CAUSES.forEach(c => { causeCumA[c] = new Array(H+1).fill(0); causeCumB[c] = new Array(H+1).fill(0); });
+let totalDecisions = 0, totalVetoes = 0;
+
+for (const inv of D.invoices){
+  inv.writeOffDay = null;
+  for (const d of inv.dec){
+    perDay[d[0]].push({inv, d});
+    totalDecisions++;
+    if (d[3] >= 0) totalVetoes++;
+    if (ACTIONS[d[1]] === "WRITE_OFF") inv.writeOffDay = d[0];
+  }
+  if (inv.aPaid && inv.aDay != null) causeCumA[inv.cause][inv.aDay] += inv.aCash;
+  if (inv.bPaid && inv.bDay != null) causeCumB[inv.cause][inv.bDay] += inv.bCash;
+}
+for (const c of CAUSES){
+  for (let i = 1; i <= H; i++){ causeCumA[c][i] += causeCumA[c][i-1]; causeCumB[c][i] += causeCumB[c][i-1]; }
+}
+const dayCash = new Array(H+1).fill(0);
+for (let i = 0; i <= H; i++){
+  dayCash[i] = D.cumulative.agent[i] - (i ? D.cumulative.agent[i-1] : 0);
+}
+const maxDayCash = Math.max(...dayCash);
+
+/* status of an invoice as at day `day`, under the agent */
+function statusAt(inv, day){
+  if (inv.aPaid && inv.aDay != null && inv.aDay <= day) return "PAID";
+  if (inv.writeOffDay != null && inv.writeOffDay <= day) return "WRITTEN_OFF";
+  if (day >= H) return inv.aPaid ? "PAID" : "WRITTEN_OFF";
+  return "OPEN";
+}
+
+/* ---------- state ----------------------------------------------------- */
+let day = H;
+let cashMode = "both";
+let armIdx = 0;
+let ledgerFilter = "all";
+let ledgerQuery = "";
+let selected = null;
+let playing = false, playTimer = null;
+
+/* ===================================================================
+   Cash chart — one scale, hover crosshair, marker at the scrub day
+   =================================================================== */
+const CW = 760, CH = 300, PL = 52, PR = 16, PT = 14, PB = 26;
+const cashMax = Math.max(...D.cumulative.agent, ...D.cumulative.baseline);
+const yTop = Math.ceil(cashMax / 1e7) * 1e7;
+const cx = d => PL + (d / H) * (CW - PL - PR);
+const cy = v => CH - PB - (v / yTop) * (CH - PT - PB);
+
+function drawCash(){
+  const A = D.cumulative.agent, B = D.cumulative.baseline;
+  const showA = cashMode !== "baseline", showB = cashMode !== "agent";
+  const p = [];
+
+  p.push(`<svg viewBox="0 0 ${CW} ${CH}" role="img" aria-label="Cumulative cash collected over the 90-day horizon, agent versus baseline">`);
+
+  // grid + y labels
+  for (let i = 0; i <= 4; i++){
+    const v = yTop * i / 4, y = cy(v);
+    p.push(`<line x1="${PL}" y1="${y}" x2="${CW-PR}" y2="${y}" stroke="#23272F" stroke-width="1"/>`);
+    p.push(`<text x="${PL-10}" y="${y+4}" text-anchor="end" fill="#5C6470" font-size="10.5" font-family="IBM Plex Mono, monospace">${short(v)}</text>`);
+  }
+  // x ticks
+  for (const t of [0,15,30,45,60,75,90]){
+    p.push(`<text x="${cx(t)}" y="${CH-8}" text-anchor="middle" fill="#5C6470" font-size="10.5" font-family="IBM Plex Mono, monospace">${t}</text>`);
+  }
+
+  // agent-ahead band
+  if (showA && showB){
+    const up = [], dn = [];
+    for (let d = 0; d <= H; d++){ up.push(`${cx(d)},${cy(Math.max(A[d],B[d]))}`); }
+    for (let d = H; d >= 0; d--){ dn.push(`${cx(d)},${cy(B[d])}`); }
+    p.push(`<polygon points="${up.concat(dn).join(" ")}" fill="rgba(75,135,255,.13)"/>`);
+  }
+
+  const path = S => S.map((v,d) => `${d?"L":"M"}${cx(d)},${cy(v)}`).join(" ");
+  if (showB) p.push(`<path d="${path(B)}" fill="none" stroke="${BASE}" stroke-width="2" stroke-linejoin="round"/>`);
+  if (showA) p.push(`<path d="${path(A)}" fill="none" stroke="${AGENT}" stroke-width="2" stroke-linejoin="round"/>`);
+
+  // day-85 note: where the legal recoveries land
+  p.push(`<line x1="${cx(85)}" y1="${PT}" x2="${cx(85)}" y2="${CH-PB}" stroke="#2E333D" stroke-width="1" stroke-dasharray="2 3"/>`);
+  p.push(`<text x="${cx(85)-7}" y="${PT+30}" text-anchor="end" fill="#5C6470" font-size="10" font-family="IBM Plex Mono, monospace">legal recovery</text>`);
+  p.push(`<text x="${cx(85)-7}" y="${PT+42}" text-anchor="end" fill="#5C6470" font-size="10" font-family="IBM Plex Mono, monospace">lands day 85</text>`);
+
+  // scrub marker + endpoints
+  p.push(`<line x1="${cx(day)}" y1="${PT}" x2="${cx(day)}" y2="${CH-PB}" stroke="${AGENT}" stroke-width="1" opacity=".55"/>`);
+  if (showB) p.push(`<circle cx="${cx(day)}" cy="${cy(B[day])}" r="4.5" fill="${BASE}" stroke="#101215" stroke-width="2"/>`);
+  if (showA) p.push(`<circle cx="${cx(day)}" cy="${cy(A[day])}" r="5" fill="${AGENT}" stroke="#101215" stroke-width="2"/>`);
+
+  p.push(`<rect id="cashHit" x="${PL}" y="${PT}" width="${CW-PL-PR}" height="${CH-PT-PB}" fill="transparent" style="cursor:crosshair"/>`);
+  p.push(`</svg>`);
+
+  const wrap = document.getElementById("cashChart");
+  wrap.querySelector("svg")?.remove();
+  wrap.insertAdjacentHTML("afterbegin", p.join(""));
+
+  const hit = wrap.querySelector("#cashHit");
+  const tip = document.getElementById("cashTip");
+  hit.addEventListener("mousemove", e => {
+    const r = wrap.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width * CW;
+    const d = Math.max(0, Math.min(H, Math.round((px - PL) / (CW - PL - PR) * H)));
+    tip.innerHTML =
+      `<div class="hd">Day ${d} past due</div>` +
+      (showA ? `<div class="r"><span class="k"><span class="sw" style="background:${AGENT}"></span>Agent</span><b>${short(A[d])}</b></div>` : "") +
+      (showB ? `<div class="r"><span class="k"><span class="sw" style="background:${BASE}"></span>Baseline</span><b>${short(B[d])}</b></div>` : "") +
+      (showA && showB ? `<div class="r"><span class="k">Ahead by</span><b style="color:#35B37E">${short(A[d]-B[d])}</b></div>` : "");
+    tip.classList.add("on");
+    const lx = cx(d) / CW * r.width;
+    tip.style.left = Math.min(Math.max(lx + 14, 8), r.width - 190) + "px";
+    tip.style.top = "18px";
+  });
+  hit.addEventListener("mouseleave", () => tip.classList.remove("on"));
+  hit.addEventListener("click", e => {
+    const r = wrap.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width * CW;
+    setDay(Math.max(0, Math.min(H, Math.round((px - PL) / (CW - PL - PR) * H))));
+  });
+}
+
+/* ===================================================================
+   The 90-day clock — 91 cells, 13 rows of 7
+   =================================================================== */
+function drawGrid(){
+  const g = document.getElementById("dayGrid");
+  g.innerHTML = "";
+  for (let d = 0; d <= H; d++){
+    const b = el("button");
+    b.textContent = d;
+    b.setAttribute("aria-label", `Day ${d} past due`);
+    if (dayCash[d] > 0){
+      b.classList.add("cash");
+      const a = 0.10 + 0.55 * Math.sqrt(dayCash[d] / maxDayCash);
+      b.style.background = `rgba(75,135,255,${a.toFixed(3)})`;
+    }
+    if (d === 61 || d === 85 || d === 3) b.classList.add("mark");
+    if (d === day){ b.classList.add("now"); b.style.background = ""; }
+    b.addEventListener("click", () => setDay(d));
+    g.appendChild(b);
+  }
+}
+
+/* ===================================================================
+   Decision feed
+   =================================================================== */
+function actClass(a, cash){
+  if (cash > 0) return "money";
+  if (a === "WRITE_OFF") return "kill";
+  if (a === "WAIT") return "wait";
+  return "";
+}
+function drawFeed(){
+  const f = document.getElementById("feed");
+  const rows = [];
+  for (let d = day; d >= 0 && rows.length < 45; d--){
+    for (const r of perDay[d]){
+      rows.push(r);
+      if (rows.length >= 45) break;
+    }
+  }
+  document.getElementById("feedCount").textContent =
+    perDay[day].length ? `${perDay[day].length} on day ${day}` : `latest before day ${day}`;
+
+  f.innerHTML = "";
+  if (!rows.length){ f.appendChild(el("div","empty","No decisions logged yet.")); return; }
+
+  for (const {inv, d} of rows){
+    const [dd, ai, ri, gi, cash] = d;
+    const act = ACTIONS[ai];
+    const node = el("div", "dec" + (gi >= 0 ? " veto" : cash > 0 ? " paid" : ""));
+    node.innerHTML =
+      `<div class="dec-top">
+         <span class="act ${actClass(act, cash)}">${act}</span>
+         <span class="id">${inv.id}</span>
+         <span class="day">day ${dd}</span>
+       </div>
+       <div class="why">${esc(D.reasons[ri]).replace(/\[(.+)\]$/, '<em>[$1]</em>')}</div>` +
+      (gi >= 0
+        ? `<div class="veto-line">
+             <svg viewBox="0 0 24 24"><path d="M12 2 2 20h20z"/></svg>
+             vetoed · ${esc(D.guardrails[gi]).replace(/_/g," ")}
+           </div>`
+        : "") +
+      (cash > 0 ? `<div class="veto-line" style="color:var(--good)">
+             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+             collected ${rs(cash)}</div>` : "");
+    node.style.cursor = "pointer";
+    node.addEventListener("click", () => { selected = inv.id; go("ledger"); });
+    f.appendChild(node);
+  }
+}
+
+/* ===================================================================
+   Donut — recovered by hidden cause, as at the scrub day
+   =================================================================== */
+function drawDonut(){
+  const R = 62, r = 42, C = 76, gap = 0.028;
+  const vals = CAUSES.map(c => causeCumA[c][day]);
+  const total = vals.reduce((a,b) => a+b, 0);
+  const p = [`<svg viewBox="0 0 ${C*2} ${C*2}" width="152" height="152" role="img" aria-label="Rupees recovered by hidden cause">`];
+
+  if (total === 0){
+    p.push(`<circle cx="${C}" cy="${C}" r="${(R+r)/2}" fill="none" stroke="#23272F" stroke-width="${R-r}"/>`);
+  } else {
+    let a0 = -Math.PI/2;
+    CAUSES.forEach((c,i) => {
+      if (vals[i] <= 0) return;
+      const sweep = (vals[i]/total) * Math.PI*2;
+      const a1 = a0 + Math.max(sweep - gap, 0.012);
+      const big = (a1-a0) > Math.PI ? 1 : 0;
+      const pt = (ang, rad) => `${C + rad*Math.cos(ang)},${C + rad*Math.sin(ang)}`;
+      p.push(`<path d="M${pt(a0,R)} A${R},${R} 0 ${big} 1 ${pt(a1,R)} L${pt(a1,r)} A${r},${r} 0 ${big} 0 ${pt(a0,r)} Z" fill="${CC[c]}"/>`);
+      a0 += sweep;
+    });
+  }
+  p.push(`<text x="${C}" y="${C-3}" text-anchor="middle" fill="#ECEFF3" font-size="18" font-weight="600" font-family="Outfit, sans-serif">${short(total)}</text>`);
+  p.push(`<text x="${C}" y="${C+14}" text-anchor="middle" fill="#5C6470" font-size="10" font-family="IBM Plex Mono, monospace">recovered</text>`);
+  p.push(`</svg>`);
+  document.getElementById("donut").innerHTML = p.join("");
+
+  const lg = document.getElementById("donutLegend");
+  lg.innerHTML = CAUSES.map((c,i) =>
+    `<div class="li"><span class="sw" style="background:${CC[c]}"></span>
+       <span class="nm">${c}</span>
+       <span class="vl">${short(vals[i])}</span></div>`).join("");
+
+  const dsp = D.byCause.DISPUTE;
+  document.getElementById("donutNote").innerHTML =
+    day >= H
+      ? `<b>DISPUTE is ${short(dsp.agent.recovered)} the baseline could never collect.</b>
+         Reminders do not resolve a dispute at any volume — only <span class="mono">ROUTE_DISPUTE</span> does.`
+      : `As at day ${day}. CHRONIC money cannot arrive before day 85, and only via a legal
+         notice on an invoice above ${rs(200000)}.`;
+}
+
+/* ===================================================================
+   Invoice preview list
+   =================================================================== */
+function drawInvoices(){
+  const paid = D.invoices.filter(i => statusAt(i, day) === "PAID").length;
+  const rate = paid / D.invoices.length;
+
+  const bars = document.getElementById("rateBars");
+  bars.innerHTML = Array.from({length: 28}, (_, i) =>
+    `<i class="${i / 28 < rate ? "f" : ""}"></i>`).join("");
+  document.getElementById("rateVal").textContent = pct(rate);
+  document.getElementById("invCount").textContent = `${paid} of ${D.invoices.length} paid`;
+
+  // whatever moved most recently, so the panel reacts as you scrub
+  const recent = D.invoices
+    .filter(i => (i.aDay != null && i.aDay <= day) || (i.writeOffDay != null && i.writeOffDay <= day))
+    .sort((a,b) => {
+      const ka = Math.max(a.aDay ?? -1, a.writeOffDay ?? -1);
+      const kb = Math.max(b.aDay ?? -1, b.writeOffDay ?? -1);
+      return kb - ka || b.amt - a.amt;
+    }).slice(0, 5);
+
+  const list = recent.length ? recent : D.invoices.slice(0, 5);
+  document.getElementById("invRows").innerHTML = list.map(i => {
+    const st = statusAt(i, day);
+    const when = st === "PAID" ? i.aDay : st === "WRITTEN_OFF" ? i.writeOffDay : null;
+    const cls = st === "PAID" ? "paid" : st === "WRITTEN_OFF" ? "off" : "open";
+    const lbl = st === "PAID" ? "Paid" : st === "WRITTEN_OFF" ? "Written off" : "Chasing";
+    return `<button class="inv-row" data-inv="${i.id}">
+      <span class="dt"><b>day ${when ?? "—"}</b><span>${i.guess}</span></span>
+      <span class="pill ${cls}"><span class="d"></span>${lbl}</span>
+      <span class="nm">${i.id}</span>
+      <span class="am">${rs(i.amt)}</span>
+    </button>`;
+  }).join("");
+
+  document.querySelectorAll("#invRows .inv-row").forEach(b =>
+    b.addEventListener("click", () => { selected = b.dataset.inv; go("ledger"); }));
+}
+
+/* ===================================================================
+   Attribution view
+   =================================================================== */
+function drawAttribution(){
+  const BW = 700, BH = 250, bPL = 92, bPR = 60, bPT = 10, bPB = 26;
+  const max = Math.max(...CAUSES.map(c =>
+    Math.max(D.byCause[c].agent.recovered, D.byCause[c].baseline.recovered)));
+  const lane = (BH - bPT - bPB) / CAUSES.length;
+  const bw = 15;
+  const p = [`<svg viewBox="0 0 ${BW} ${BH}" role="img" aria-label="Rupees recovered per hidden cause, baseline versus agent">`];
+
+  for (let i = 0; i <= 3; i++){
+    const v = max * i / 3, x = bPL + (v/max) * (BW - bPL - bPR);
+    p.push(`<line x1="${x}" y1="${bPT}" x2="${x}" y2="${BH-bPB}" stroke="#23272F"/>`);
+    p.push(`<text x="${x}" y="${BH-9}" text-anchor="middle" fill="#5C6470" font-size="10.5" font-family="IBM Plex Mono, monospace">${short(v)}</text>`);
+  }
+
+  CAUSES.forEach((c, i) => {
+    const y0 = bPT + i*lane + lane/2;
+    const b = D.byCause[c].baseline.recovered, a = D.byCause[c].agent.recovered;
+    const wB = (b/max) * (BW - bPL - bPR), wA = (a/max) * (BW - bPL - bPR);
+    p.push(`<rect x="${bPL}" y="${y0-bw-2}" width="${Math.max(wB,2)}" height="${bw}" rx="4" fill="${BASE}"/>`);
+    p.push(`<rect x="${bPL}" y="${y0+2}" width="${Math.max(wA,2)}" height="${bw}" rx="4" fill="${AGENT}"/>`);
+    p.push(`<rect x="${bPL-78}" y="${y0-5}" width="9" height="9" rx="2.5" fill="${CC[c]}"/>`);
+    p.push(`<text x="${bPL-64}" y="${y0+3}" fill="#8A929E" font-size="10.5" font-family="IBM Plex Mono, monospace">${c}</text>`);
+    p.push(`<text x="${bPL+Math.max(wB,2)+7}" y="${y0-bw+8}" fill="#5C6470" font-size="10" font-family="IBM Plex Mono, monospace">${short(b)}</text>`);
+    p.push(`<text x="${bPL+Math.max(wA,2)+7}" y="${y0+bw-2}" fill="#4B87FF" font-size="10" font-weight="600" font-family="IBM Plex Mono, monospace">${short(a)}</text>`);
+  });
+  p.push(`</svg>`);
+  const w = document.getElementById("causeBars");
+  w.querySelector("svg")?.remove();
+  w.insertAdjacentHTML("afterbegin", p.join(""));
+
+  // attribution table
+  let rows = `<thead><tr>
+      <th>Hidden cause</th><th class="r">n</th><th class="r">&Delta; recovered</th>
+      <th class="r">&Delta; cost</th><th class="r">&Delta; net</th><th class="r">Contacts</th>
+    </tr></thead><tbody>`;
+  let tR = 0, tC = 0, tB = 0, tA = 0;
+  for (const c of CAUSES){
+    const b = D.byCause[c].baseline, a = D.byCause[c].agent;
+    const dR = a.recovered - b.recovered, dC = a.cost - b.cost, dN = dR - dC;
+    tR += dR; tC += dC; tB += b.contacts; tA += a.contacts;
+    rows += `<tr>
+      <td><span class="tag"><span class="d" style="background:${CC[c]}"></span>${c}</span></td>
+      <td class="r mono">${b.invoices}</td>
+      <td class="r mono ${dR>=0?"pos":"negv"}">${dR>=0?"+":""}${short(dR)}</td>
+      <td class="r mono">${dC>=0?"+":""}${rs(dC)}</td>
+      <td class="r mono ${dN>=0?"pos":"negv"}" style="font-weight:600">${dN>=0?"+":""}${short(dN)}</td>
+      <td class="r mono" style="color:var(--muted)">${b.contacts} → ${a.contacts}</td>
+    </tr>`;
+  }
+  rows += `<tr class="total">
+      <td>Total</td><td class="r mono">500</td>
+      <td class="r mono pos">+${short(tR)}</td>
+      <td class="r mono">+${rs(tC)}</td>
+      <td class="r mono pos">+${short(tR-tC)}</td>
+      <td class="r mono" style="color:var(--muted)">${tB} → ${tA}</td>
+    </tr></tbody>`;
+  document.getElementById("attrTable").innerHTML = rows;
+
+  // restraint panel
+  const ch = D.byCause.CHRONIC;
+  const untouched = D.invoices.filter(i => i.cause === "CHRONIC" && i.aContacts === 0).length;
+  const wasted = D.invoices.filter(i => i.cause === "CHRONIC" && i.aContacts === 0)
+    .reduce((s,i) => s + i.bCost, 0);
+  const legal = D.actionMix.agent.ESCALATE_LEGAL || 0;
+  document.getElementById("restraint").innerHTML = `
+    <div class="hero-figs" style="margin:16px 0 4px">
+      <div class="bignum">${untouched}<span style="font-size:22px;color:var(--dim)"> / ${ch.agent.invoices}</span></div>
+    </div>
+    <div style="color:var(--muted);font-size:12.5px;margin-bottom:16px">
+      CHRONIC invoices never contacted once.
+    </div>
+    <div class="cf" style="margin-top:0">
+      <div class="t">What restraint was worth</div>
+      <div class="rr"><span class="k">Baseline spent chasing those</span><span class="v negv">${rs(wasted)}</span></div>
+      <div class="rr"><span class="k">…and recovered from them</span><span class="v">${rs(0)}</span></div>
+      <div class="rr"><span class="k">Contacts on CHRONIC</span><span class="v">${ch.baseline.contacts} → ${ch.agent.contacts}</span></div>
+      <div class="rr"><span class="k">Legal notices issued</span><span class="v">${legal}</span></div>
+      <div class="rr"><span class="k">Recovered by those notices</span><span class="v pos">${rs(ch.agent.recovered)}</span></div>
+    </div>
+    <div class="note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/>
+        <path d="M12 7v6M12 16v1" stroke="#101215" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <div>A chronic customer never pays. The single exception is a legal notice above
+      ${rs(200000)}, which recovers 40% on day 85 — so every rupee here came from
+      <b>${legal}</b> notices and from not spending anything on the other ${untouched}.</div>
+    </div>`;
+}
+
+/* ===================================================================
+   Inference view
+   =================================================================== */
+function drawInference(){
+  const list = document.getElementById("armList");
+  list.innerHTML = "";
+  D.arms.forEach((a, i) => {
+    const b = el("button", "arm");
+    b.setAttribute("aria-pressed", String(i === armIdx));
+    b.innerHTML = `
+      <span class="nm">${a.name}${!a.deterministic ? ' <span class="nodet">NON-DETERMINISTIC</span>' : ""}</span>
+      <span class="ac">${pct(a.accuracy)}</span>
+      <span class="track"><i style="width:${(a.accuracy*100).toFixed(1)}%;background:${i===armIdx?AGENT:"#3A4150"}"></i></span>
+      <span class="sub">
+        <span>CHRONIC precision ${(a.precision.CHRONIC*100).toFixed(0)}%</span>
+        <span>DISPUTE recall ${(a.recall.DISPUTE*100).toFixed(0)}%</span>
+        <span>${a.cost}</span>
+      </span>`;
+    b.addEventListener("click", () => { armIdx = i; drawInference(); });
+    list.appendChild(b);
+  });
+  const floor = D.meta.inferenceFloor;
+  list.insertAdjacentHTML("beforeend",
+    `<div class="arm" style="opacity:.6;background:transparent;border:1px dashed var(--line-2)">
+      <span class="nm" style="color:var(--dim)">always guess the commonest cause</span>
+      <span class="ac" style="color:var(--dim)">${pct(floor)}</span>
+      <span class="sub"><span>the floor any arm has to clear</span></span>
+    </div>`);
+
+  const a = D.arms[armIdx];
+  document.getElementById("cmTitle").textContent = a.name;
+  const maxCell = Math.max(...a.matrix.flat());
+  let t = `<thead><tr><th class="rowh"></th>${CAUSES.map(c =>
+    `<th>${c.slice(0,4)}</th>`).join("")}<th>recall</th></tr></thead><tbody>`;
+  a.matrix.forEach((row, i) => {
+    t += `<tr><td class="rowh">${CAUSES[i]}</td>`;
+    row.forEach((v, j) => {
+      // sequential: one hue, light -> dark by magnitude
+      const alpha = v === 0 ? 0.04 : 0.10 + 0.62 * (v / maxCell);
+      const ink = alpha > 0.42 ? "#F2FBFA" : "#8A929E";
+      t += `<td><div class="cell${i===j?" diag":""}" style="background:rgba(22,171,157,${alpha.toFixed(3)});color:${ink}">${v}</div></td>`;
+    });
+    t += `<td><div class="cell" style="color:var(--muted)">${(a.recall[CAUSES[i]]*100).toFixed(0)}%</div></td></tr>`;
+  });
+  t += `<tr><td class="rowh" style="color:var(--dim)">precision</td>${CAUSES.map(c =>
+    `<td><div class="cell" style="color:var(--muted)">${(a.precision[c]*100).toFixed(0)}%</div></td>`).join("")}<td></td></tr>`;
+  t += `</tbody>`;
+  document.getElementById("cmTable").innerHTML = t;
+
+  document.getElementById("cmStats").innerHTML = `
+    <span class="k">Accuracy</span><span class="v">${pct(a.accuracy)} on 150 held-out invoices</span>
+    <span class="k">Reproducible</span><span class="v">${a.deterministic ? "yes — same answer every run" : "no — a remote model call"}</span>
+    <span class="k">Cost per run</span><span class="v">${a.cost}</span>
+    <span class="k">Ceiling</span><span class="v">~88% — ${Math.round(D.meta.noiseRate*150)} of 150 carry clues from the wrong cause</span>`;
+
+  const g = D.meta.guessCounts;
+  let gt = `<thead><tr><th>Cause</th><th class="r">True count</th><th class="r">Agent guessed</th>
+    <th class="r">Recovery rate</th><th class="r">Contacts</th><th class="r">Net vs baseline</th></tr></thead><tbody>`;
+  for (const c of CAUSES){
+    const b = D.byCause[c].baseline, ag = D.byCause[c].agent;
+    const dN = (ag.recovered - ag.cost) - (b.recovered - b.cost);
+    gt += `<tr>
+      <td><span class="tag"><span class="d" style="background:${CC[c]}"></span>${c}</span></td>
+      <td class="r mono">${ag.invoices}</td>
+      <td class="r mono">${g[c] ?? 0}</td>
+      <td class="r mono">${pct(ag.recovery_rate_count)}</td>
+      <td class="r mono" style="color:var(--muted)">${b.contacts} → ${ag.contacts}</td>
+      <td class="r mono ${dN>=0?"pos":"negv"}">${dN>=0?"+":""}${short(dN)}</td>
+    </tr>`;
+  }
+  document.getElementById("guessTable").innerHTML = gt + "</tbody>";
+}
+
+/* ===================================================================
+   Ledger
+   =================================================================== */
+const FILTERS = [
+  {k:"all", l:"All 500"},
+  {k:"wrong", l:"Misread cause"},
+  {k:"paid", l:"Paid"},
+  {k:"off", l:"Written off"},
+  ...CAUSES.map(c => ({k:"c:"+c, l:c, color:CC[c]})),
+];
+function drawFilters(){
+  document.getElementById("ledgerFilters").innerHTML = FILTERS.map(f =>
+    `<button class="chip" data-f="${f.k}" aria-pressed="${f.k===ledgerFilter}">
+      ${f.color ? `<span class="d" style="background:${f.color}"></span>` : ""}${f.l}
+    </button>`).join("");
+  document.querySelectorAll("#ledgerFilters .chip").forEach(b =>
+    b.addEventListener("click", () => { ledgerFilter = b.dataset.f; drawFilters(); drawLedger(); }));
+}
+function ledgerRows(){
+  const q = ledgerQuery.trim().toUpperCase();
+  return D.invoices.filter(i => {
+    if (q && !i.id.includes(q)) return false;
+    if (ledgerFilter === "wrong") return i.guess !== i.cause;
+    if (ledgerFilter === "paid") return i.aPaid;
+    if (ledgerFilter === "off") return !i.aPaid;
+    if (ledgerFilter.startsWith("c:")) return i.cause === ledgerFilter.slice(2);
+    return true;
+  });
+}
+function drawLedger(){
+  const rows = ledgerRows();
+  document.getElementById("ledgerCount").textContent = `${rows.length} shown`;
+  let t = `<thead><tr>
+      <th>Invoice</th><th class="r">Amount</th><th>True cause</th><th>Agent guessed</th>
+      <th>Agent</th><th>Baseline</th></tr></thead><tbody>`;
+  for (const i of rows.slice(0, 400)){
+    const ok = i.guess === i.cause;
+    t += `<tr data-inv="${i.id}" aria-selected="${i.id===selected}">
+      <td class="mono">${i.id}</td>
+      <td class="r mono">${rs(i.amt)}</td>
+      <td><span class="tag"><span class="d" style="background:${CC[i.cause]}"></span>${i.cause}</span></td>
+      <td><span class="tag ${ok?"":"wrong"}"><span class="d" style="background:${CC[i.guess]}"></span>${i.guess}</span></td>
+      <td class="mono">${i.aPaid ? `<span class="pos">${rs(i.aCash)}</span> <span style="color:var(--dim)">d${i.aDay}</span>` : `<span style="color:var(--dim)">written off</span>`}</td>
+      <td class="mono">${i.bPaid ? `${rs(i.bCash)} <span style="color:var(--dim)">d${i.bDay}</span>` : `<span style="color:var(--dim)">written off</span>`}</td>
+    </tr>`;
+  }
+  document.getElementById("ledgerTable").innerHTML = t + "</tbody>";
+  document.querySelectorAll("#ledgerTable tbody tr").forEach(r =>
+    r.addEventListener("click", () => { selected = r.dataset.inv; drawLedger(); drawInspector(); }));
+  if (!selected && rows.length) { selected = rows[0].id; }
+  drawInspector();
+}
+function drawInspector(){
+  const box = document.getElementById("inspector");
+  const inv = D.invoices.find(i => i.id === selected);
+  if (!inv){ box.innerHTML = `<div class="empty">Select an invoice to replay its 90 days.</div>`; return; }
+  const ok = inv.guess === inv.cause;
+  const delta = (inv.aCash - inv.aCost) - (inv.bCash - inv.bCost);
+
+  const events = inv.dec.map(d => {
+    const [dd, ai, ri, gi, cash, cost] = d;
+    const act = ACTIONS[ai];
+    const cls = cash > 0 ? "money" : gi >= 0 ? "veto" : act === "WRITE_OFF" ? "kill" : "";
+    return `<div class="ev ${cls}">
+      <div class="t">
+        <span class="d">day ${dd}</span>
+        <span class="act ${actClass(act, cash)}">${act}</span>
+        ${cost > 0 ? `<span class="mono" style="font-size:10.5px;color:var(--dim)">${rs(cost)}</span>` : ""}
+        ${cash > 0 ? `<span class="mono" style="font-size:10.5px;color:var(--good)">+${rs(cash)}</span>` : ""}
+      </div>
+      <div class="w">${esc(D.reasons[ri])}</div>
+      ${gi >= 0 ? `<div class="w" style="color:var(--warn);font-family:var(--mono);font-size:10.5px">
+        vetoed · ${esc(D.guardrails[gi]).replace(/_/g," ")}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  box.innerHTML = `
+    <div class="insp">
+      <div class="hd"><span class="id">${inv.id}</span>
+        <span class="pill ${inv.aPaid?"paid":"off"}"><span class="d"></span>${inv.aPaid?"Paid":"Written off"}</span>
+      </div>
+      <div class="amt">${rs(inv.amt)}</div>
+      <div class="kv">
+        <span class="k">True cause</span>
+        <span class="v"><span class="tag"><span class="d" style="background:${CC[inv.cause]}"></span>${inv.cause}</span></span>
+        <span class="k">Agent inferred</span>
+        <span class="v"><span class="tag ${ok?"":"wrong"}"><span class="d" style="background:${CC[inv.guess]}"></span>${inv.guess}${ok?"":" — wrong"}</span></span>
+        <span class="k">Contacts</span><span class="v">${inv.aContacts} agent · ${inv.bContacts} baseline</span>
+        <span class="k">Chasing cost</span><span class="v">${rs(inv.aCost)} agent · ${rs(inv.bCost)} baseline</span>
+      </div>
+      <div class="eyebrow">Decision timeline</div>
+      <div class="tl">${events || '<div class="empty">No decisions logged.</div>'}</div>
+      <div class="cf">
+        <div class="t">The same invoice, under the fixed ladder</div>
+        <div class="rr"><span class="k">Baseline collected</span>
+          <span class="v">${inv.bPaid ? rs(inv.bCash) + ` on day ${inv.bDay}` : "nothing"}</span></div>
+        <div class="rr"><span class="k">Agent collected</span>
+          <span class="v">${inv.aPaid ? rs(inv.aCash) + ` on day ${inv.aDay}` : "nothing"}</span></div>
+        <div class="rr"><span class="k">Net difference</span>
+          <span class="v ${delta>=0?"pos":"negv"}" style="font-weight:600">${delta>=0?"+":""}${rs(delta)}</span></div>
+      </div>
+    </div>`;
+}
+
+/* ===================================================================
+   Method view
+   =================================================================== */
+function drawMethod(){
+  const mix = D.actionMix;
+  let t = `<thead><tr><th>Action</th><th class="r">Cost each</th>
+    <th class="r">Baseline</th><th class="r">Agent</th><th>Reaches the customer</th></tr></thead><tbody>`;
+  for (const a of ACTIONS){
+    const c = D.meta.actionCosts[a];
+    t += `<tr>
+      <td class="mono">${a}</td>
+      <td class="r mono">${c ? rs(c) : `<span style="color:var(--dim)">free</span>`}</td>
+      <td class="r mono" style="color:var(--muted)">${mix.baseline[a] ?? "—"}</td>
+      <td class="r mono">${mix.agent[a] ?? "—"}</td>
+      <td class="mono" style="color:var(--dim);font-size:11px">${D.meta.contactActions.includes(a) ? "yes — spends contact budget" : "no"}</td>
+    </tr>`;
+  }
+  document.getElementById("actionTable").innerHTML = t + "</tbody>";
+
+  const rules = [
+    ["C2.1", "Maximum 4 contacts per invoice, ever"],
+    ["C2.2", "Minimum 48 hours between any two contacts"],
+    ["C2.3", "Auto-halt on promise-to-pay until the date passes"],
+    ["C2.4", "Auto-halt permanently on customer opt-out"],
+    ["C2.5", `ESCALATE_LEGAL needs amount > ${rs(200000)} AND overdue > 60 days`],
+    ["C2.6", "WRITE_OFF and PAID are terminal — nothing follows"],
+    ["C2.7", "Horizon is 90 days; anything unresolved is written off"],
+  ];
+  document.getElementById("guardList").innerHTML = rules.map(([id, txt]) => {
+    const n = D.vetoes[Object.keys(D.vetoes).find(k => k.startsWith(id)) ?? ""] ?? 0;
+    return `<div class="arm" style="grid-template-columns:auto 1fr auto;align-items:center;cursor:default">
+      <span class="mono" style="font-size:11px;color:var(--dim)">${id}</span>
+      <span style="font-size:12.5px;color:var(--muted)">${txt}</span>
+      <span class="mono" style="font-size:11.5px;color:${n?"var(--warn)":"var(--dim)"}">${n ? n.toLocaleString()+" vetoes" : "—"}</span>
+    </div>`;
+  }).join("");
+  document.getElementById("vetoTotal").textContent = totalVetoes.toLocaleString();
+
+  const f = D.failures;
+  // The shipping arm's own precision, not a typed-in number: these two rows are
+  // the same classifier weakness the inference view reports.
+  const rulesArm = D.arms.find(a => a.name === "rules");
+  const pc = v => (v * 100).toFixed(0) + "%";
+  const fails = [
+    ["1", `${f.f1.ids.length} payable invoices written off on day 0`, rs(f.f1.value) + " forfeited",
+      `A fallible guess paired with an irreversible action. CHRONIC precision is
+       ${pc(rulesArm.precision.CHRONIC)}, so about one write-off in five is wrong.`],
+    ["2", `${f.f2.wrong} of ${f.f2.routed} dispute routings were wrong`, rs(f.f2.cost) + " wasted",
+      `DISPUTE precision is ${pc(rulesArm.precision.DISPUTE)}. Worse than the cost is the
+       silence: the playbook suppresses all reminders, so a misrouted invoice is then
+       deliberately ignored.`],
+    ["3", `${f.f3.n} of ${f.f3.total} cash-crunch nudges fired before the money existed`,
+      "no feature carries timing",
+      "customer_pays_after_day_of_month is drawn independently of liquidity_day, so it holds zero information about when money arrives."],
+    ["4", `${f.f4.n} real disputes never routed`, rs(f.f4.value) + " unrecoverable",
+      "ROUTE_DISPUTE is the only action that resolves a dispute, so an unrecognised one can never be paid."],
+    ["5", "Mean days-to-cash is worse than the baseline's",
+      `${D.overall.baseline.mean_days_to_cash.toFixed(1)} → ${D.overall.agent.mean_days_to_cash.toFixed(1)} days`,
+      "A minority of large delays outweighs a majority of small gains. A team optimising for DSO rather than cash would be right to reject this agent."],
+  ];
+  document.getElementById("failTable").innerHTML =
+    `<thead><tr><th style="width:28px"></th><th>Failure</th><th>Price</th><th>Root cause</th></tr></thead><tbody>` +
+    fails.map(([n, t2, p, r]) => `<tr>
+      <td class="mono" style="color:var(--dim)">${n}</td>
+      <td style="white-space:normal;max-width:300px">${t2}</td>
+      <td class="mono negv" style="white-space:normal">${p}</td>
+      <td style="white-space:normal;color:var(--muted);font-size:11.5px;max-width:460px">${r}</td>
+    </tr>`).join("") + "</tbody>";
+}
+
+/* ===================================================================
+   Wiring
+   =================================================================== */
+function setDay(d){
+  day = Math.max(0, Math.min(H, d));
+  document.getElementById("dayLabel").textContent = day;
+  const A = D.cumulative.agent, B = D.cumulative.baseline;
+  document.getElementById("cashBig").textContent = rs(A[day]);
+  document.getElementById("cashBase").textContent = rs(B[day]);
+  const dl = document.getElementById("cashDelta");
+  const lift = A[day] - B[day];
+  const rel = B[day] ? lift / B[day] : 0;
+  dl.className = "delta" + (lift < 0 ? " neg" : "");
+  dl.innerHTML = `<svg viewBox="0 0 12 12"><path d="${lift<0?"M6 10L1 4h10z":"M6 2l5 6H1z"}"/></svg>
+    ${lift<0?"":"+"}${(rel*100).toFixed(1)}%`;
+  // The chart plots gross cash, because that is what is time-stamped. The
+  // report's headline is net of chasing cost, so state it plainly rather than
+  // letting the big number stand in for it.
+  const ao = D.overall.agent, bo = D.overall.baseline;
+  const netLift = ao.net_recovery - bo.net_recovery;
+  document.getElementById("netLine").innerHTML =
+    `Net of <b>${rs(ao.cost)}</b> chasing cost across the full horizon:
+     <b>${rs(ao.net_recovery)}</b> against the baseline's <b>${rs(bo.net_recovery)}</b> —
+     <span class="g">${netLift >= 0 ? "+" : ""}${rs(netLift)}
+     (${netLift >= 0 ? "+" : ""}${(netLift / bo.net_recovery * 100).toFixed(1)}%)</span>
+     on ${ao.contacts} contacts against ${bo.contacts}.`;
+
+  document.getElementById("clockCash").textContent = short(A[day]);
+  document.getElementById("clockSub").textContent =
+    day >= H ? "collected across the full horizon" : `collected by day ${day} of ${H}`;
+  drawCash(); drawGrid(); drawFeed(); drawDonut(); drawInvoices();
+}
+
+function go(name){
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + name));
+  document.querySelectorAll(".rail button[data-view]").forEach(b => {
+    if (b.dataset.view === name) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  document.getElementById("viewTitle").textContent = {
+    overview:"Overview", attribution:"Lift attribution",
+    inference:"Cause inference", ledger:"Invoice ledger", method:"Method & guardrails",
+  }[name];
+  if (name === "attribution") drawAttribution();
+  if (name === "inference") drawInference();
+  if (name === "ledger") drawLedger();
+  if (name === "method") drawMethod();
+}
+document.querySelectorAll(".rail button[data-view]").forEach(b =>
+  b.addEventListener("click", () => go(b.dataset.view)));
+document.querySelectorAll("[data-goto]").forEach(b =>
+  b.addEventListener("click", () => go(b.dataset.goto)));
+
+document.querySelectorAll("#cashMode button").forEach(b =>
+  b.addEventListener("click", () => {
+    cashMode = b.dataset.m;
+    document.querySelectorAll("#cashMode button").forEach(x =>
+      x.setAttribute("aria-pressed", String(x === b)));
+    drawCash();
+  }));
+
+document.getElementById("dayPrev").addEventListener("click", () => setDay(day - 1));
+document.getElementById("dayNext").addEventListener("click", () => setDay(day + 1));
+
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function stopPlay(){
+  playing = false; clearInterval(playTimer);
+  document.getElementById("playLabel").textContent = "Replay";
+  document.getElementById("playIcon").innerHTML = '<path d="M7 4l12 8-12 8z"/>';
+}
+document.getElementById("playBtn").addEventListener("click", () => {
+  if (playing){ stopPlay(); return; }
+  if (reduced){ setDay(H); return; }
+  playing = true;
+  document.getElementById("playLabel").textContent = "Pause";
+  document.getElementById("playIcon").innerHTML = '<path d="M7 4h4v16H7zM13 4h4v16h-4z"/>';
+  setDay(0);
+  playTimer = setInterval(() => {
+    if (day >= H){ stopPlay(); return; }
+    setDay(day + 1);
+  }, 42);
+});
+
+document.getElementById("globalSearch").addEventListener("input", e => {
+  ledgerQuery = e.target.value;
+  if (ledgerQuery.trim()){
+    selected = null;
+    go("ledger");
+    drawLedger();
+  }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowLeft"){ stopPlay(); setDay(day - 1); }
+  if (e.key === "ArrowRight"){ stopPlay(); setDay(day + 1); }
+});
+
+/* ---------- boot ------------------------------------------------------ */
+document.getElementById("runMeta").textContent =
+  `${D.meta.invoices} invoices · ${H} days`;
+document.getElementById("footDec").textContent = totalDecisions.toLocaleString();
+document.getElementById("footVeto").textContent = totalVetoes.toLocaleString();
+drawFilters();
+setDay(H);
+</script>

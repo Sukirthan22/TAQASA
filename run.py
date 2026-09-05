@@ -7,6 +7,7 @@ Plain English: everything you can do with this repo, you do through this file.
     python run.py --verify            run the Gate 1 checks            (Phase 1)
     python run.py --policy baseline   score the dumb ladder            (Phase 2)
     python run.py --infer             score both inference arms        (Phase 3)
+    python run.py --infer-llm         add the LLM arm, 3-way            (Part G)
     python run.py --policy agent      score the smart agent            (Phase 4)
     python run.py --compare           write results/report.md          (Phase 5)
 
@@ -94,6 +95,72 @@ def cmd_infer(args) -> int:
     return 0
 
 
+def cmd_infer_llm(args) -> int:
+    """Part G option 1: score a third, LLM-based inference arm on the same split.
+
+    Evaluation only. Nothing here can reach a pay/wait/write-off decision.
+    Without --refresh this reads the cached run and needs no API key.
+    """
+    from src.inference import RulesClassifier, print_matrix, score, split, train_tree
+    from src.llm_arm import LLMClassifier, fetch_predictions, load_all_cached
+    from src.simulator import load_invoices
+
+    df = load_invoices()
+    train, test = split(df, seed=args.seed)
+
+    if args.refresh:
+        # Only call models that have no cached run yet. A completed experiment
+        # is not re-bought by accident; delete its cache file to redo one.
+        import os
+
+        from src.llm_arm import cache_path, load_predictions
+
+        payloads = []
+        for model in cfg.LLM_MODELS:
+            cached = (load_predictions(model)
+                      if os.path.exists(cache_path(model)) else None)
+            if cached and not cached.get("partial"):
+                print(f"Cached already, skipping: {model}")
+                payloads.append(cached)
+                continue
+            print(f"Calling {model} on {len(test)} held-out invoices "
+                  f"({cfg.LLM_CONCURRENCY} at a time)...")
+            payloads.append(fetch_predictions(train, test, model=model))
+    else:
+        payloads = load_all_cached()
+
+    arms = [score(RulesClassifier(), test),
+            score(train_tree(train, seed=args.seed), test)]
+    arms += [score(LLMClassifier(p), test) for p in payloads]
+
+    print()
+    print("=" * 76)
+    print("INFERENCE ARMS ON THE IDENTICAL HELD-OUT SPLIT")
+    print("=" * 76)
+    print(f"  LLMs served by {cfg.LLM_BASE_URL}, thinking disabled, "
+          f"temperature {cfg.LLM_TEMPERATURE}")
+    print(f"  {cfg.LLM_FEWSHOT_N} labelled examples in-context, "
+          f"from the TRAINING split only")
+    for arm in arms:
+        print_matrix(arm)
+
+    # A majority-class guesser, as the floor any arm has to clear to be worth
+    # anything at all.
+    floor = test["latent_cause"].value_counts().iloc[0] / len(test)
+
+    print()
+    print("-" * 76)
+    for arm in sorted(arms, key=lambda a: -a.accuracy):
+        print(f"  {arm.arm:<34} accuracy {arm.accuracy:>6.1%}   "
+              f"CHRONIC prec {arm.per_cause_precision[cfg.CHRONIC]:>4.0%}   "
+              f"DISPUTE recall {arm.per_cause_recall[cfg.DISPUTE]:>4.0%}")
+    print(f"  {'always guess the commonest cause':<34} accuracy {floor:>6.1%}"
+          f"   <- the floor")
+    print("-" * 76)
+    print()
+    return 0
+
+
 def cmd_compare(args) -> int:
     """Phase 5: run both policies on the identical book and write results/report.md."""
     from src.audit import summarise, write_run
@@ -142,6 +209,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Phase 2/4: run one policy over all invoices and score it")
     p.add_argument("--infer", action="store_true",
                    help="Phase 3: score both cause-inference arms on the held-out split")
+    p.add_argument("--infer-llm", dest="infer_llm", action="store_true",
+                   help="Part G: score a third LLM arm on the same held-out split")
+    p.add_argument("--refresh", action="store_true",
+                   help=f"with --infer-llm: re-call the model (needs {cfg.LLM_API_KEY_ENV})")
     p.add_argument("--compare", action="store_true",
                    help="Phase 5: run both policies and write results/report.md")
     p.add_argument("--n", type=int, default=cfg.N_INVOICES,
@@ -163,6 +234,8 @@ def main(argv=None) -> int:
         return cmd_policy(args)
     if args.infer:
         return cmd_infer(args)
+    if args.infer_llm:
+        return cmd_infer_llm(args)
     if args.compare:
         return cmd_compare(args)
 

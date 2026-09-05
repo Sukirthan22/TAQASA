@@ -453,3 +453,65 @@ AGENT_LEGAL_DAY = LEGAL_MIN_DAYS_OVERDUE + 1
 # We keep WRITE_OFF anyway, deliberately: fidelity to the written spec is worth
 # more here than 2% of net recovery, and the resulting loss is reported as a
 # real failure in "Where It Fails" rather than quietly engineered away.
+
+
+# ---------------------------------------------------------------------------
+# 13. THE LLM INFERENCE ARM (PRD Part G, option 1) — EVALUATION ONLY
+# ---------------------------------------------------------------------------
+#
+# A third cause-inference arm, scored on the SAME held-out split as the rules
+# and the tree. Read PRD C3 before touching this: the LLM is never permitted
+# anywhere near a pay/wait/write-off decision. It classifies, it is graded, and
+# that is the end of its involvement. `policies/agent.py` does not import it.
+#
+# TWO RULES THAT KEEP THIS FROM BREAKING THE PROJECT
+#
+# 1. ITS PREDICTIONS ARE CACHED TO DISK. An LLM is not reproducible, and the
+#    whole project rests on two runs producing identical numbers. So the API is
+#    called once, the answers are written to LLM_PREDICTIONS_JSON, and every
+#    later run reads the cache. A stranger cloning this repo with no API key
+#    still sees the measured result and still gets byte-identical output.
+#
+# 2. IT NEVER TOUCHES THE HEADLINE NUMBER. Net incremental recovery comes from
+#    the agent, which uses the rules arm. Deleting this file entirely would not
+#    move a single figure in the report.
+
+# NVIDIA NIM speaks the OpenAI wire format, so the standard client works with
+# nothing but a different base URL.
+LLM_BASE_URL = "https://integrate.api.nvidia.com/v1"
+LLM_API_KEY_ENV = "NVIDIA_API_KEY"
+# Every model the LLM arm is scored on. Kept as a list, not a single id,
+# because the interesting result is not one model's score — it is what happens
+# to the score as the model gets ~18x bigger. Both are reported in the README.
+LLM_MODELS = (
+    "nvidia/nemotron-3.5-lightning-30b-a3b",   # 30B total / 3B active
+    "nvidia/nemotron-3-ultra-550b-a55b",       # 550B total / 55B active
+)
+LLM_MODEL = LLM_MODELS[0]
+
+# The big model answers in ~9s, so 150 serial calls take 23 minutes. Requests
+# are independent and results are keyed by invoice id, so a small thread pool
+# is safe and changes no answer.
+# Dropped from 6 after the 550B endpoint returned 503 "service temporarily
+# overloaded" mid-run. Transient errors are retried with exponential backoff
+# and jitter, and partial progress is cached so a failed run resumes.
+LLM_CONCURRENCY = 3
+LLM_MAX_RETRIES = 6
+
+# Greedy decoding, for whatever reproducibility the provider can offer. The
+# cache above is what actually guarantees it.
+LLM_TEMPERATURE = 0.0
+LLM_MAX_TOKENS = 16
+LLM_SEED = SEED
+
+# Labelled examples put in the prompt, drawn from the TRAINING split only.
+# The tree gets 350 labelled invoices to learn from; giving the LLM zero would
+# be a rigged comparison. This is the closest honest equivalent.
+LLM_FEWSHOT_N = 24
+
+# Nemotron 3.5 reasons by default. For a one-word classification that is pure
+# cost: measured at 900+ completion tokens without even reaching an answer,
+# against 5 tokens with thinking off. Switched off at the chat-template level.
+LLM_EXTRA_BODY = {"chat_template_kwargs": {"thinking": False}}
+
+LLM_PREDICTIONS_JSON = "results/llm_predictions.json"
